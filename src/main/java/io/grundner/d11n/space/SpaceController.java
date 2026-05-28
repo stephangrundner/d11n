@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -21,6 +22,7 @@ import java.util.List;
 public class SpaceController {
 
     private final SpaceService spaceService;
+    private final SpaceSettingsService settingsService;
 
     @GetMapping
     public List<Space> listSpaces() throws IOException {
@@ -37,5 +39,18 @@ public class SpaceController {
     public Space getSpace(@PathVariable String spaceId) throws IOException {
         return spaceService.findById(spaceId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Space not found: " + spaceId));
+    }
+
+    @GetMapping("/{spaceId}/settings")
+    public SpaceSettings getSettings(@PathVariable String spaceId) {
+        return settingsService.getSettings(spaceId);
+    }
+
+    @PutMapping("/{spaceId}/settings")
+    public SpaceSettings updateSettings(
+            @PathVariable String spaceId,
+            @RequestBody SpaceSettings settings
+    ) throws IOException, GitAPIException {
+        return settingsService.saveSettings(spaceId, settings);
     }
 }

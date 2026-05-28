@@ -97,6 +97,12 @@ public class DocumentService {
         }
     }
 
+    public DiffResponse getDiff(String spaceId, String slug, String hash) throws IOException {
+        try (GitRepository repo = spaceService.openRepository(spaceId)) {
+            return new DiffResponse(repo.getFileDiff(pathFromSlug(slug), hash));
+        }
+    }
+
     private Document parseDocument(String slug, String spaceId, String rawContent) {
         var parsed = FrontmatterParser.parse(rawContent);
         var fm = parsed.frontmatter();

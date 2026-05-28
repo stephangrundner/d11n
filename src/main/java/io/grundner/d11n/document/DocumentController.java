@@ -59,4 +59,10 @@ public class DocumentController {
             throws IOException, GitAPIException {
         return documentService.getHistory(spaceId, slug);
     }
+
+    @GetMapping("/{slug}/history/{hash}/diff")
+    public DiffResponse getDiff(@PathVariable String spaceId, @PathVariable String slug,
+                                @PathVariable String hash) throws IOException {
+        return documentService.getDiff(spaceId, slug, hash);
+    }
 }
