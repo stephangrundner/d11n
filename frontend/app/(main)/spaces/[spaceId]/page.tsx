@@ -11,7 +11,7 @@ import Alert from '@mui/material/Alert';
 import Chip from '@mui/material/Chip';
 import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined';
 import { SpaceActions } from '@/components/SpaceActions';
-import { api } from '@/lib/api';
+import { api } from '@/lib/api.server';
 import type { Document, SpaceSettings } from '@/lib/types';
 
 interface Props {

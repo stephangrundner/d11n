@@ -1,7 +1,7 @@
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
 import { DocumentEditor } from '@/components/editor/DocumentEditor';
-import { api } from '@/lib/api';
+import { api } from '@/lib/api.server';
 
 interface Props {
   params: Promise<{ spaceId: string; slug: string }>;

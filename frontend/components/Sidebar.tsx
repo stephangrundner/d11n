@@ -18,14 +18,26 @@ import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutl
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import AddIcon from '@mui/icons-material/Add';
+import LogoutIcon from '@mui/icons-material/Logout';
 import { api } from '@/lib/api';
 import type { Space, Document } from '@/lib/types';
+import { getClientToken, clearToken, getUsernameFromToken } from '@/lib/auth';
 import { CreateSpaceDialog } from './CreateSpaceDialog';
 import { CreateDocumentDialog } from './CreateDocumentDialog';
 
 export function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
+
+  const [username, setUsername] = useState<string | null>(null);
+  useEffect(() => {
+    setUsername(getUsernameFromToken(getClientToken() ?? ''));
+  }, []);
+
+  const handleLogout = () => {
+    clearToken();
+    router.push('/login');
+  };
 
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [loadingSpaces, setLoadingSpaces] = useState(true);
@@ -204,6 +216,19 @@ export function Sidebar() {
             })}
           </List>
         )}
+      </Box>
+
+      {/* User / Logout */}
+      <Divider />
+      <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {username ?? 'Unknown'}
+        </Typography>
+        <Tooltip title="Sign out">
+          <IconButton size="small" onClick={handleLogout}>
+            <LogoutIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+        </Tooltip>
       </Box>
 
       <CreateSpaceDialog

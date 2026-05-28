@@ -1,10 +1,11 @@
+import { cookies } from 'next/headers';
 import type { Space, Document, CommitInfo, DiffResponse, SpaceSettings } from './types';
-import { getClientToken, clearToken } from './auth';
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
+import { API_BASE } from './api';
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = getClientToken();
+  const store = await cookies();
+  const token = store.get('d11n_token')?.value;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options?.headers as Record<string, string>),
@@ -12,13 +13,6 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers, cache: 'no-store' });
-
-  if (res.status === 401) {
-    clearToken();
-    window.location.href = '/login';
-    throw new Error('Unauthorized');
-  }
-
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
@@ -59,25 +53,5 @@ export const api = {
       apiFetch<CommitInfo[]>(`/api/spaces/${spaceId}/documents/${slug}/history`),
     diff: (spaceId: string, slug: string, hash: string) =>
       apiFetch<DiffResponse>(`/api/spaces/${spaceId}/documents/${slug}/history/${hash}/diff`),
-  },
-  assets: {
-    url: (spaceId: string, filename: string) =>
-      `${API_BASE}/api/spaces/${spaceId}/assets/${filename}`,
-    upload: async (spaceId: string, filename: string, data: Blob): Promise<void> => {
-      const res = await fetch(`${API_BASE}/api/spaces/${spaceId}/assets/${filename}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': data.type || 'application/octet-stream' },
-        body: data,
-        cache: 'no-store',
-      });
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    },
-    fetchContent: async (spaceId: string, filename: string): Promise<string> => {
-      const res = await fetch(`${API_BASE}/api/spaces/${spaceId}/assets/${filename}`, {
-        cache: 'no-store',
-      });
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-      return res.text();
-    },
   },
 };

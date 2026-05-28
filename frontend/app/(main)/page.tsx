@@ -5,7 +5,7 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import Alert from '@mui/material/Alert';
-import { api } from '@/lib/api';
+import { api } from '@/lib/api.server';
 import type { Space } from '@/lib/types';
 
 export default async function HomePage() {
@@ -15,7 +15,7 @@ export default async function HomePage() {
   try {
     spaces = await api.spaces.list();
   } catch {
-    error = 'Backend not available. Start the Spring Boot server and refresh.';
+    error = 'Could not load spaces. Check that the backend is running.';
   }
 
   return (

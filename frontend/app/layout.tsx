@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { ThemeRegistry } from '@/components/ThemeRegistry';
-import { AppLayout } from '@/components/AppLayout';
 
 export const metadata: Metadata = {
   title: 'd11n',
@@ -12,9 +11,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <ThemeRegistry>
-          <AppLayout>{children}</AppLayout>
-        </ThemeRegistry>
+        <ThemeRegistry>{children}</ThemeRegistry>
       </body>
     </html>
   );
