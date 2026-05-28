@@ -6,5 +6,8 @@ public record CommitInfo(
         String hash,
         String message,
         String author,
-        Instant timestamp
+        Instant timestamp,
+        int linesAdded,
+        int linesRemoved,
+        int baseLines
 ) {}

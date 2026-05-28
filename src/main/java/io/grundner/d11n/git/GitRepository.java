@@ -8,11 +8,13 @@ import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.treewalk.AbstractTreeIterator;
 import org.eclipse.jgit.treewalk.CanonicalTreeParser;
 import org.eclipse.jgit.treewalk.EmptyTreeIterator;
+import org.eclipse.jgit.treewalk.TreeWalk;
 import org.eclipse.jgit.treewalk.filter.PathFilter;
 
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -95,6 +97,60 @@ public class GitRepository implements Closeable {
         List<RevCommit> commits = new ArrayList<>();
         git.log().addPath(filePath).call().forEach(commits::add);
         return commits;
+    }
+
+    public record ChangeStats(int linesAdded, int linesRemoved, int baseLines) {}
+
+    public ChangeStats computeChangeStats(String filePath, String commitHash) throws IOException {
+        var repo = git.getRepository();
+        try (var rw = new RevWalk(repo);
+             var reader = repo.newObjectReader()) {
+
+            var commit = rw.parseCommit(repo.resolve(commitHash));
+
+            int baseLines = 0;
+            AbstractTreeIterator oldTree;
+
+            if (commit.getParentCount() > 0) {
+                var parent = rw.parseCommit(commit.getParent(0).getId());
+
+                // count lines in the old file version
+                try (var tw = new TreeWalk(repo)) {
+                    tw.addTree(parent.getTree());
+                    tw.setRecursive(true);
+                    tw.setFilter(PathFilter.create(filePath));
+                    if (tw.next()) {
+                        var bytes = repo.open(tw.getObjectId(0)).getBytes();
+                        for (byte b : bytes) { if (b == '\n') baseLines++; }
+                        if (bytes.length > 0) baseLines++;
+                    }
+                }
+
+                var parser = new CanonicalTreeParser();
+                parser.reset(reader, parent.getTree());
+                oldTree = parser;
+            } else {
+                oldTree = new EmptyTreeIterator();
+            }
+
+            var newParser = new CanonicalTreeParser();
+            newParser.reset(reader, commit.getTree());
+
+            int added = 0, removed = 0;
+            try (var df = new DiffFormatter(OutputStream.nullOutputStream())) {
+                df.setRepository(repo);
+                df.setPathFilter(PathFilter.create(filePath));
+                var diffs = df.scan(oldTree, newParser);
+                for (var diff : diffs) {
+                    for (var edit : df.toFileHeader(diff).toEditList()) {
+                        added += edit.getLengthB();
+                        removed += edit.getLengthA();
+                    }
+                }
+            }
+
+            return new ChangeStats(added, removed, baseLines);
+        }
     }
 
     public String getFileDiff(String filePath, String commitHash) throws IOException {

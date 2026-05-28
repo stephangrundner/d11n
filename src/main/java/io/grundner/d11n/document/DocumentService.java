@@ -85,14 +85,26 @@ public class DocumentService {
     }
 
     public List<CommitInfo> getHistory(String spaceId, String slug) throws IOException, GitAPIException {
+        String filePath = pathFromSlug(slug);
         try (GitRepository repo = spaceService.openRepository(spaceId)) {
-            return repo.getFileHistory(pathFromSlug(slug)).stream()
-                    .map(c -> new CommitInfo(
-                            c.getName(),
-                            c.getShortMessage(),
-                            c.getAuthorIdent().getName(),
-                            c.getAuthorIdent().getWhenAsInstant()
-                    ))
+            return repo.getFileHistory(filePath).stream()
+                    .map(c -> {
+                        GitRepository.ChangeStats stats;
+                        try {
+                            stats = repo.computeChangeStats(filePath, c.getName());
+                        } catch (IOException e) {
+                            stats = new GitRepository.ChangeStats(0, 0, 0);
+                        }
+                        return new CommitInfo(
+                                c.getName(),
+                                c.getShortMessage(),
+                                c.getAuthorIdent().getName(),
+                                c.getAuthorIdent().getWhenAsInstant(),
+                                stats.linesAdded(),
+                                stats.linesRemoved(),
+                                stats.baseLines()
+                        );
+                    })
                     .toList();
         }
     }
