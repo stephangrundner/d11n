@@ -33,9 +33,16 @@ public class AssetController {
             @PathVariable String filename
     ) throws IOException {
         byte[] data = assetService.getAsset(spaceId, filename);
-        MediaType mediaType = filename.endsWith(".svg")
-                ? MediaType.parseMediaType("image/svg+xml")
-                : MediaType.APPLICATION_OCTET_STREAM;
+        int dot = filename.lastIndexOf('.');
+        String ext = dot >= 0 ? filename.substring(dot + 1).toLowerCase() : "";
+        MediaType mediaType = switch (ext) {
+            case "svg" -> MediaType.parseMediaType("image/svg+xml");
+            case "png" -> MediaType.IMAGE_PNG;
+            case "jpg", "jpeg" -> MediaType.IMAGE_JPEG;
+            case "gif" -> MediaType.IMAGE_GIF;
+            case "webp" -> MediaType.parseMediaType("image/webp");
+            default -> MediaType.APPLICATION_OCTET_STREAM;
+        };
         return ResponseEntity.ok()
                 .contentType(mediaType)
                 .body(data);
