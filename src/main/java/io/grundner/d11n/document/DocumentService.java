@@ -67,7 +67,8 @@ public class DocumentService {
 
             Instant createdAt = parseInstant(FrontmatterParser.parse(existing).frontmatter().get("createdAt"));
             String fileContent = buildFileContent(request, createdAt, Instant.now());
-            repo.writeAndCommit(filePath, fileContent, "docs: update " + slug,
+            repo.writeAndCommit(filePath, fileContent,
+                    resolveMessage(request.commitMessage(), "docs: update " + slug),
                     resolveAuthor(request.author()), properties.getDefaultEmail());
             return parseDocument(slug, spaceId, fileContent);
         }
@@ -142,6 +143,10 @@ public class DocumentService {
 
     private String resolveAuthor(String requestAuthor) {
         return requestAuthor != null ? requestAuthor : properties.getDefaultAuthor();
+    }
+
+    private String resolveMessage(String requestMessage, String defaultMessage) {
+        return (requestMessage != null && !requestMessage.isBlank()) ? requestMessage : defaultMessage;
     }
 
     @SuppressWarnings("unchecked")
