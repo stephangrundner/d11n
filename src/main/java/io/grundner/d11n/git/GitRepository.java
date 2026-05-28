@@ -47,10 +47,28 @@ public class GitRepository implements Closeable {
                 .call();
     }
 
+    public void writeBinaryAndCommit(String filePath, byte[] content, String message, String authorName, String authorEmail)
+            throws IOException, GitAPIException {
+        Path target = workTree.resolve(filePath);
+        Files.createDirectories(target.getParent());
+        Files.write(target, content);
+        git.add().addFilepattern(filePath).call();
+        git.commit()
+                .setMessage(message)
+                .setAuthor(authorName, authorEmail)
+                .call();
+    }
+
     public Optional<String> readFile(String filePath) throws IOException {
         Path target = workTree.resolve(filePath);
         if (!Files.exists(target)) return Optional.empty();
         return Optional.of(Files.readString(target));
+    }
+
+    public Optional<byte[]> readBinary(String filePath) throws IOException {
+        Path target = workTree.resolve(filePath);
+        if (!Files.exists(target)) return Optional.empty();
+        return Optional.of(Files.readAllBytes(target));
     }
 
     public List<String> listMarkdownFiles() throws IOException {
