@@ -33,7 +33,13 @@ export const DiagramNode = Node.create({
   },
 
   renderHTML({ HTMLAttributes }) {
-    return ['img', mergeAttributes({ class: 'd11n-diagram' }, HTMLAttributes)];
+    // Strip host from backend URLs so ProseMirror's brief default render
+    // uses a relative proxy path instead of hitting the backend directly.
+    const src: string = HTMLAttributes.src ?? '';
+    const relativeSrc = /^https?:\/\/[^/]+\/api\//.test(src)
+      ? src.replace(/^https?:\/\/[^/]+/, '')
+      : src;
+    return ['img', mergeAttributes({ class: 'd11n-diagram' }, { ...HTMLAttributes, src: relativeSrc })];
   },
 
   addNodeView() {

@@ -27,7 +27,12 @@ export const ImageNode = Node.create({
   },
 
   renderHTML({ HTMLAttributes }) {
-    return ['img', HTMLAttributes];
+    // Strip host from backend URLs — same reasoning as DiagramNode.
+    const src: string = HTMLAttributes.src ?? '';
+    const relativeSrc = /^https?:\/\/[^/]+\/api\//.test(src)
+      ? src.replace(/^https?:\/\/[^/]+/, '')
+      : src;
+    return ['img', { ...HTMLAttributes, src: relativeSrc }];
   },
 
   addStorage() {

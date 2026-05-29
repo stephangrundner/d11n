@@ -1,6 +1,7 @@
 package io.grundner.d11n.config;
 
 import io.grundner.d11n.auth.JwtAuthFilter;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -36,6 +37,10 @@ public class SecurityConfig {
                 // SSO callback URLs (needed when oauth2-client is enabled)
                 .requestMatchers("/login/oauth2/**", "/oauth2/**").permitAll()
                 .anyRequest().authenticated()
+            )
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((req, res, e) ->
+                    res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized"))
             )
             // SSO: Uncomment to enable OAuth2 login.
             // Requires the oauth2-client dependency and provider config in application.properties.

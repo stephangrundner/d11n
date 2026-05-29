@@ -19,10 +19,15 @@ export function DiagramView({ node, updateAttributes, selected }: NodeViewProps)
 
   const { src, alt } = node.attrs as { src: string | null; alt: string };
 
+  // Normalize legacy absolute backend URLs to the Next.js proxy path
+  const proxySrc = src?.startsWith(API_BASE)
+    ? src.slice(API_BASE.length)
+    : (src ?? null);
+
   useEffect(() => {
-    if (!src) { setPreviewUrl(null); return; }
+    if (!proxySrc) { setPreviewUrl(null); return; }
     let cancelled = false;
-    fetch(src, { cache: 'no-store' })
+    fetch(proxySrc, { cache: 'no-store' })
       .then(r => r.text())
       .then(text => {
         if (cancelled) return;
@@ -33,16 +38,15 @@ export function DiagramView({ node, updateAttributes, selected }: NodeViewProps)
         blobUrlRef.current = url;
         setPreviewUrl(url);
       })
-      .catch(() => { if (!cancelled) setPreviewUrl(src); });
+      .catch(() => { if (!cancelled) setPreviewUrl(proxySrc); });
     return () => {
       cancelled = true;
       if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
     };
   }, [src]);
 
-  // Extract filename from full asset URL
-  const filename = src
-    ? src.replace(`${API_BASE}/api/spaces/${spaceId}/assets/`, '')
+  const filename = proxySrc
+    ? proxySrc.replace(`/api/spaces/${spaceId}/assets/`, '')
     : '';
 
   return (

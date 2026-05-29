@@ -79,29 +79,34 @@ export function DocumentEditor({ doc }: Props) {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [lastCommitMessage, setLastCommitMessage] = useState('');
 
+  // Stable references — recreating these on every render triggers TipTap's
+  // compareOptions → setOptions → view.setProps chain which disrupts the
+  // Suggestion plugin state mid-keystroke and closes the slash menu.
+  const extensions = useMemo(() => [
+    StarterKit,
+    Markdown,
+    TableKit.configure({ table: { resizable: false } }),
+    Placeholder.configure({
+      placeholder: ({ node }) => {
+        if (node.type.name === 'heading') return 'Heading';
+        return "Type '/' for commands…";
+      },
+    }),
+    slashCommand,
+    ImageNode,
+    DiagramNode,
+  ], []);
+
+  const editorProps = useMemo(() => ({
+    attributes: { class: 'd11n-editor' },
+  }), []);
+
   const editor = useEditor({
     immediatelyRender: true,
-    extensions: [
-      StarterKit,
-      Markdown,
-      TableKit.configure({
-        table: { resizable: false },
-      }),
-      Placeholder.configure({
-        placeholder: ({ node }) => {
-          if (node.type.name === 'heading') return 'Heading';
-          return "Type '/' for commands…";
-        },
-      }),
-      slashCommand,
-      ImageNode,
-      DiagramNode,
-    ],
+    extensions,
     content: initialBody,
     onUpdate: () => { if (mountedRef.current) setIsDirty(true); },
-    editorProps: {
-      attributes: { class: 'd11n-editor' },
-    },
+    editorProps,
   });
 
   const { items: tocItems, activeId: tocActiveId, scrollTo: tocScrollTo } = useTableOfContents(editor ?? null);

@@ -15,7 +15,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
-import { api } from '@/lib/api';
+import { api, API_BASE } from '@/lib/api';
 
 export function ImageView({ node, updateAttributes, deleteNode, selected }: NodeViewProps) {
   const [editing, setEditing] = useState(false);
@@ -25,7 +25,9 @@ export function ImageView({ node, updateAttributes, deleteNode, selected }: Node
   const params = useParams();
   const spaceId = (params?.spaceId as string) ?? '';
 
-  const { src, alt } = node.attrs as { src: string | null; alt: string };
+  const { src: rawSrc, alt } = node.attrs as { src: string | null; alt: string };
+  // Normalize legacy absolute backend URLs to relative proxy path
+  const src = rawSrc?.startsWith(API_BASE) ? rawSrc.slice(API_BASE.length) : rawSrc;
 
   const uploadBlob = async (blob: Blob, filename: string) => {
     setLoading(true);

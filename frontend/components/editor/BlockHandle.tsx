@@ -1,5 +1,5 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { type Editor } from '@tiptap/react';
 import { type Node } from '@tiptap/pm/model';
 import { DragHandle } from '@tiptap/extension-drag-handle-react';
@@ -75,6 +75,13 @@ export function BlockHandle({ editor }: Props) {
   const hoveredRef = useRef<HoveredNode>({ node: null, pos: 0 });
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
 
+  // Stable refs prevent DragHandle's useEffect from re-running on every render,
+  // which would cause unnecessary plugin unregister/register cycles and flushSync warnings.
+  const onNodeChange = useCallback(({ node, pos }: { node: Node | null; pos: number }) => {
+    hoveredRef.current = { node, pos };
+  }, []);
+  const dragPositionConfig = useMemo(() => ({ placement: 'left' as const }), []);
+
   const handleClick = (e: React.MouseEvent<HTMLElement>) => {
     const { pos, node } = hoveredRef.current;
     // Atom nodes (tables, diagrams) have no content — skip cursor placement
@@ -121,10 +128,8 @@ export function BlockHandle({ editor }: Props) {
       <DragHandle
         editor={editor}
         className="d11n-drag-handle"
-        computePositionConfig={{ placement: 'left' }}
-        onNodeChange={({ node, pos }) => {
-          hoveredRef.current = { node, pos };
-        }}
+        computePositionConfig={dragPositionConfig}
+        onNodeChange={onNodeChange}
       >
         {/*
           No floating-ui offset — instead the element is wider than the visible icon.

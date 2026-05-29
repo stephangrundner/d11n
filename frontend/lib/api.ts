@@ -3,13 +3,17 @@ import { getClientToken, clearToken } from './auth';
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
 
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+export function authHeader(): Record<string, string> {
   const token = getClientToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    ...authHeader(),
     ...(options?.headers as Record<string, string>),
   };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
 
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers, cache: 'no-store' });
 
@@ -61,10 +65,12 @@ export const api = {
       apiFetch<DiffResponse>(`/api/spaces/${spaceId}/documents/${slug}/history/${hash}/diff`),
   },
   assets: {
+    // Relative URL — routed through the Next.js proxy (app/api/spaces/.../assets/route.ts)
+    // which adds the Bearer token server-side. Works for <img src> and direct fetch alike.
     url: (spaceId: string, filename: string) =>
-      `${API_BASE}/api/spaces/${spaceId}/assets/${filename}`,
+      `/api/spaces/${spaceId}/assets/${filename}`,
     upload: async (spaceId: string, filename: string, data: Blob): Promise<void> => {
-      const res = await fetch(`${API_BASE}/api/spaces/${spaceId}/assets/${filename}`, {
+      const res = await fetch(`/api/spaces/${spaceId}/assets/${filename}`, {
         method: 'PUT',
         headers: { 'Content-Type': data.type || 'application/octet-stream' },
         body: data,
@@ -73,7 +79,7 @@ export const api = {
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
     },
     fetchContent: async (spaceId: string, filename: string): Promise<string> => {
-      const res = await fetch(`${API_BASE}/api/spaces/${spaceId}/assets/${filename}`, {
+      const res = await fetch(`/api/spaces/${spaceId}/assets/${filename}`, {
         cache: 'no-store',
       });
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
