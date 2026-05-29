@@ -7,8 +7,11 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { TableKit } from '@tiptap/extension-table';
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import Box from '@mui/material/Box';
+import Breadcrumbs from '@mui/material/Breadcrumbs';
 import InputBase from '@mui/material/InputBase';
+import MuiLink from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
+import NextLink from 'next/link';
 import Alert from '@mui/material/Alert';
 import ToggleButton from '@mui/material/ToggleButton';
 import Tooltip from '@mui/material/Tooltip';
@@ -222,15 +225,32 @@ export function DocumentEditor({ doc }: Props) {
           px: { xs: 3, sm: 5, md: 8 },
         }}>
           {/* Breadcrumb */}
-          <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Typography variant="caption" color="text.disabled" sx={{ fontWeight: 500 }}>
-              {doc.spaceId}
-            </Typography>
-            <Typography variant="caption" color="text.disabled" sx={{ mx: 0.25 }}>/</Typography>
-            <Typography variant="caption" color="text.secondary">
-              {title || doc.slug}
-            </Typography>
-          </Box>
+          {(() => {
+            const slugParts = doc.slug.split('/');
+            const folderParts = slugParts.slice(0, -1);
+            return (
+              <Breadcrumbs sx={{ mb: 4 }}>
+                <MuiLink component={NextLink} href={`/spaces/${doc.spaceId}`} underline="hover" color="text.disabled" variant="caption" sx={{ fontWeight: 500 }}>
+                  {doc.spaceId}
+                </MuiLink>
+                {folderParts.map((part, i) => (
+                  <MuiLink
+                    key={i}
+                    component={NextLink}
+                    href={`/spaces/${doc.spaceId}/${slugParts.slice(0, i + 1).join('/')}`}
+                    underline="hover"
+                    color="text.disabled"
+                    variant="caption"
+                  >
+                    {part}
+                  </MuiLink>
+                ))}
+                <Typography variant="caption" color="text.secondary">
+                  {title || slugParts[slugParts.length - 1]}
+                </Typography>
+              </Breadcrumbs>
+            );
+          })()}
 
           {/* Title */}
           <InputBase

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -30,43 +31,51 @@ public class DocumentController {
         return documentService.listDocuments(spaceId);
     }
 
-    @GetMapping("/{slug}")
-    public Document getDocument(@PathVariable String spaceId, @PathVariable String slug)
-            throws IOException {
-        return documentService.getDocument(spaceId, slug);
-    }
-
-    @PostMapping("/{slug}")
-    @ResponseStatus(HttpStatus.CREATED)
-    public Document createDocument(@PathVariable String spaceId, @PathVariable String slug,
-                                   @RequestBody DocumentRequest request,
-                                   @AuthenticationPrincipal UserDetails principal) throws IOException, GitAPIException {
-        return documentService.createDocument(spaceId, slug, request, principal.getUsername());
-    }
-
-    @PutMapping("/{slug}")
-    public Document updateDocument(@PathVariable String spaceId, @PathVariable String slug,
-                                   @RequestBody DocumentRequest request,
-                                   @AuthenticationPrincipal UserDetails principal) throws IOException, GitAPIException {
-        return documentService.updateDocument(spaceId, slug, request, principal.getUsername());
-    }
-
-    @DeleteMapping("/{slug}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteDocument(@PathVariable String spaceId, @PathVariable String slug)
-            throws IOException, GitAPIException {
-        documentService.deleteDocument(spaceId, slug);
-    }
-
-    @GetMapping("/{slug}/history")
-    public List<CommitInfo> getHistory(@PathVariable String spaceId, @PathVariable String slug)
+    // History and diff use fixed paths so they take precedence over /{*slug}
+    @GetMapping("/history")
+    public List<CommitInfo> getHistory(@PathVariable String spaceId,
+                                       @RequestParam String slug)
             throws IOException, GitAPIException {
         return documentService.getHistory(spaceId, slug);
     }
 
-    @GetMapping("/{slug}/history/{hash}/diff")
-    public DiffResponse getDiff(@PathVariable String spaceId, @PathVariable String slug,
-                                @PathVariable String hash) throws IOException {
+    @GetMapping("/diff")
+    public DiffResponse getDiff(@PathVariable String spaceId,
+                                @RequestParam String slug,
+                                @RequestParam String hash) throws IOException {
         return documentService.getDiff(spaceId, slug, hash);
+    }
+
+    // {*slug} captures path segments including slashes; the value includes a leading /
+    @GetMapping("/{*slug}")
+    public Document getDocument(@PathVariable String spaceId, @PathVariable String slug)
+            throws IOException {
+        return documentService.getDocument(spaceId, stripLeadingSlash(slug));
+    }
+
+    @PostMapping("/{*slug}")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Document createDocument(@PathVariable String spaceId, @PathVariable String slug,
+                                   @RequestBody DocumentRequest request,
+                                   @AuthenticationPrincipal UserDetails principal) throws IOException, GitAPIException {
+        return documentService.createDocument(spaceId, stripLeadingSlash(slug), request, principal.getUsername());
+    }
+
+    @PutMapping("/{*slug}")
+    public Document updateDocument(@PathVariable String spaceId, @PathVariable String slug,
+                                   @RequestBody DocumentRequest request,
+                                   @AuthenticationPrincipal UserDetails principal) throws IOException, GitAPIException {
+        return documentService.updateDocument(spaceId, stripLeadingSlash(slug), request, principal.getUsername());
+    }
+
+    @DeleteMapping("/{*slug}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteDocument(@PathVariable String spaceId, @PathVariable String slug)
+            throws IOException, GitAPIException {
+        documentService.deleteDocument(spaceId, stripLeadingSlash(slug));
+    }
+
+    private static String stripLeadingSlash(String slug) {
+        return slug.startsWith("/") ? slug.substring(1) : slug;
     }
 }

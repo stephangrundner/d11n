@@ -1,4 +1,4 @@
-import type { Space, Document, CommitInfo, DiffResponse, SpaceSettings } from './types';
+import type { Space, Document, CommitInfo, DiffResponse, SpaceSettings, TreeNode } from './types';
 import { getClientToken, clearToken } from './auth';
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
@@ -24,7 +24,8 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  if (res.status === 204) return undefined as T;
+  const ct = res.headers.get('content-type') ?? '';
+  if (!ct.includes('application/json')) return undefined as T;
   return res.json() as Promise<T>;
 }
 
@@ -60,9 +61,24 @@ export const api = {
     delete: (spaceId: string, slug: string) =>
       apiFetch<void>(`/api/spaces/${spaceId}/documents/${slug}`, { method: 'DELETE' }),
     history: (spaceId: string, slug: string) =>
-      apiFetch<CommitInfo[]>(`/api/spaces/${spaceId}/documents/${slug}/history`),
+      apiFetch<CommitInfo[]>(`/api/spaces/${spaceId}/documents/history?slug=${encodeURIComponent(slug)}`),
     diff: (spaceId: string, slug: string, hash: string) =>
-      apiFetch<DiffResponse>(`/api/spaces/${spaceId}/documents/${slug}/history/${hash}/diff`),
+      apiFetch<DiffResponse>(`/api/spaces/${spaceId}/documents/diff?slug=${encodeURIComponent(slug)}&hash=${encodeURIComponent(hash)}`),
+  },
+  tree: (spaceId: string) => apiFetch<TreeNode[]>(`/api/spaces/${spaceId}/tree`),
+  folders: {
+    create: (spaceId: string, path: string) =>
+      apiFetch<void>(`/api/spaces/${spaceId}/folders`, {
+        method: 'POST',
+        body: JSON.stringify({ path }),
+      }),
+    delete: (spaceId: string, path: string) =>
+      apiFetch<void>(`/api/spaces/${spaceId}/folders?path=${encodeURIComponent(path)}`, { method: 'DELETE' }),
+    rename: (spaceId: string, path: string, newName: string) =>
+      apiFetch<void>(`/api/spaces/${spaceId}/folders?path=${encodeURIComponent(path)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ newName }),
+      }),
   },
   assets: {
     // Relative URL — routed through the Next.js proxy (app/api/spaces/.../assets/route.ts)

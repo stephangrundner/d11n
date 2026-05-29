@@ -32,3 +32,11 @@ export interface CommitInfo {
 export interface DiffResponse {
   diff: string;
 }
+
+export interface TreeNode {
+  name: string;
+  path: string;
+  type: 'document' | 'folder';
+  title?: string;
+  children?: TreeNode[];
+}

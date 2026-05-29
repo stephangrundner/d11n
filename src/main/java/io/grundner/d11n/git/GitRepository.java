@@ -93,6 +93,74 @@ public class GitRepository implements Closeable {
         }
     }
 
+    public List<String> listFolderPaths() throws IOException {
+        try (var stream = Files.walk(workTree)) {
+            return stream
+                    .filter(p -> !p.startsWith(workTree.resolve(".git")))
+                    .filter(p -> p.getFileName() != null && p.getFileName().toString().equals(".gitkeep"))
+                    .map(p -> workTree.relativize(p.getParent()).toString().replace("\\", "/"))
+                    .filter(s -> !s.isEmpty())
+                    .sorted()
+                    .toList();
+        }
+    }
+
+    public void createFolderAndCommit(String folderPath, String authorName, String authorEmail)
+            throws IOException, GitAPIException {
+        Path dir = workTree.resolve(folderPath);
+        Files.createDirectories(dir);
+        String keepFile = folderPath + "/.gitkeep";
+        Files.createFile(workTree.resolve(keepFile));
+        git.add().addFilepattern(keepFile).call();
+        git.commit()
+                .setMessage("folders: create " + folderPath)
+                .setAuthor(authorName, authorEmail)
+                .call();
+    }
+
+    public void deleteFolderAndCommit(String folderPath, String authorName, String authorEmail)
+            throws IOException, GitAPIException {
+        Path dir = workTree.resolve(folderPath);
+        if (!Files.isDirectory(dir)) return;
+        // stage all deletions
+        try (var stream = Files.walk(dir)) {
+            stream.filter(Files::isRegularFile).forEach(p -> {
+                String rel = workTree.relativize(p).toString().replace("\\", "/");
+                try { git.rm().addFilepattern(rel).call(); }
+                catch (GitAPIException e) { throw new RuntimeException(e); }
+            });
+        }
+        git.commit()
+                .setMessage("folders: delete " + folderPath)
+                .setAuthor(authorName, authorEmail)
+                .call();
+    }
+
+    public void renameFolderAndCommit(String oldPath, String newPath, String authorName, String authorEmail)
+            throws IOException, GitAPIException {
+        Path oldDir = workTree.resolve(oldPath);
+        Path newDir = workTree.resolve(newPath);
+        if (!Files.isDirectory(oldDir)) return;
+        Files.createDirectories(newDir.getParent());
+        // move files one by one so git tracks them
+        try (var stream = Files.walk(oldDir)) {
+            List<Path> files = stream.filter(Files::isRegularFile).toList();
+            for (Path src : files) {
+                String relOld = workTree.relativize(src).toString().replace("\\", "/");
+                String relNew = newPath + relOld.substring(oldPath.length());
+                Path dst = workTree.resolve(relNew);
+                Files.createDirectories(dst.getParent());
+                Files.move(src, dst);
+                git.rm().addFilepattern(relOld).call();
+                git.add().addFilepattern(relNew).call();
+            }
+        }
+        git.commit()
+                .setMessage("folders: rename " + oldPath + " → " + newPath)
+                .setAuthor(authorName, authorEmail)
+                .call();
+    }
+
     public List<RevCommit> getFileHistory(String filePath) throws GitAPIException {
         List<RevCommit> commits = new ArrayList<>();
         git.log().addPath(filePath).call().forEach(commits::add);
