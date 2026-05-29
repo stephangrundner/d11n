@@ -1,5 +1,6 @@
 package io.grundner.d11n.git;
 
+import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
 import java.util.LinkedHashMap;
@@ -31,7 +32,10 @@ public class FrontmatterParser {
         if (frontmatter == null || frontmatter.isEmpty()) {
             return body != null ? body : "";
         }
-        Yaml snakeYaml = new Yaml();
+        DumperOptions opts = new DumperOptions();
+        opts.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+        opts.setIndent(2);
+        Yaml snakeYaml = new Yaml(opts);
         String yaml = snakeYaml.dump(new LinkedHashMap<>(frontmatter));
         return DELIMITER + "\n" + yaml + DELIMITER + "\n\n" + (body != null ? body : "");
     }

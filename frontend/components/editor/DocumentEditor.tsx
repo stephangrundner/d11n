@@ -6,26 +6,13 @@ import { Markdown } from 'tiptap-markdown';
 import Placeholder from '@tiptap/extension-placeholder';
 import { TableKit } from '@tiptap/extension-table';
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import InputBase from '@mui/material/InputBase';
-import Breadcrumbs from '@mui/material/Breadcrumbs';
 import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
-import IconButton from '@mui/material/IconButton';
-import Tooltip from '@mui/material/Tooltip';
 import ToggleButton from '@mui/material/ToggleButton';
-import CircularProgress from '@mui/material/CircularProgress';
+import Tooltip from '@mui/material/Tooltip';
 import GlobalStyles from '@mui/material/GlobalStyles';
-import Menu from '@mui/material/Menu';
-import MenuItem from '@mui/material/MenuItem';
-import ListItemText from '@mui/material/ListItemText';
-import ListItemIcon from '@mui/material/ListItemIcon';
-import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import EditNoteIcon from '@mui/icons-material/EditNote';
-import TocOutlinedIcon from '@mui/icons-material/TocOutlined';
-import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import FormatBoldIcon from '@mui/icons-material/FormatBold';
 import FormatItalicIcon from '@mui/icons-material/FormatItalic';
 import FormatStrikethroughIcon from '@mui/icons-material/FormatStrikethrough';
@@ -38,10 +25,9 @@ import { BlockHandle } from './BlockHandle';
 import { TableHandles } from './TableHandles';
 import { DiagramNode } from './DiagramNode';
 import { ImageNode } from './ImageNode';
-import { useTableOfContents } from './useTableOfContents';
-import { TableOfContents } from './TableOfContents';
 import { HistoryPanel } from './HistoryPanel';
 import { SaveMessageDialog } from './SaveMessageDialog';
+import { useDocumentSetter } from '@/contexts/DocumentContext';
 
 interface Props {
   doc: Document;
@@ -58,11 +44,14 @@ const bubbleBtnSx = {
 };
 
 export function DocumentEditor({ doc }: Props) {
-  const router = useRouter();
   const [title, setTitle] = useState(doc.title ?? '');
   const [saving, setSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [saveCount, setSaveCount] = useState(0);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [lastCommitMessage, setLastCommitMessage] = useState('');
   const mountedRef = useRef(false);
   useEffect(() => { mountedRef.current = true; }, []);
 
@@ -72,16 +61,7 @@ export function DocumentEditor({ doc }: Props) {
     [],
   );
   const frontMetaRef = useRef<FrontMatter>(initialMeta);
-  const [tocVisible, setTocVisible] = useState(initialMeta.toc !== 'false');
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [saveCount, setSaveCount] = useState(0);
-  const [saveMenuAnchor, setSaveMenuAnchor] = useState<HTMLElement | null>(null);
-  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [lastCommitMessage, setLastCommitMessage] = useState('');
 
-  // Stable references — recreating these on every render triggers TipTap's
-  // compareOptions → setOptions → view.setProps chain which disrupts the
-  // Suggestion plugin state mid-keystroke and closes the slash menu.
   const extensions = useMemo(() => [
     StarterKit,
     Markdown,
@@ -109,17 +89,6 @@ export function DocumentEditor({ doc }: Props) {
     editorProps,
   });
 
-  const { items: tocItems, activeId: tocActiveId, scrollTo: tocScrollTo } = useTableOfContents(editor ?? null);
-
-  const handleTocToggle = useCallback(() => {
-    setTocVisible(prev => {
-      const next = !prev;
-      frontMetaRef.current = { ...frontMetaRef.current, toc: String(next) };
-      setIsDirty(true);
-      return next;
-    });
-  }, []);
-
   const handleSave = useCallback(async (commitMessage?: string) => {
     if (!editor || saving) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -144,6 +113,7 @@ export function DocumentEditor({ doc }: Props) {
     }
   }, [editor, title, doc, saving]);
 
+  // Keyboard shortcut
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -155,12 +125,36 @@ export function DocumentEditor({ doc }: Props) {
     return () => document.removeEventListener('keydown', handler);
   }, [handleSave]);
 
+  const updateContext = useDocumentSetter();
+
+  // Push editor state up into the layout-level context so MenuBar can read it.
+  // Runs whenever any relevant piece of state changes.
+  useEffect(() => {
+    updateContext({
+      spaceId: doc.spaceId,
+      slug: doc.slug,
+      title,
+      isDirty,
+      saving,
+      reloadKey: saveCount,
+      onSave: () => handleSave(),
+      onOpenHistory: () => setHistoryOpen(true),
+      onOpenSaveDialog: () => setSaveDialogOpen(true),
+    });
+  // handleSave is stable (useCallback), setHistoryOpen/setSaveDialogOpen are stable React setters
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updateContext, doc.spaceId, doc.slug, title, isDirty, saving, saveCount, handleSave]);
+
+  // Clear context when the document unmounts
+  useEffect(() => {
+    return () => updateContext({ spaceId: null, slug: null, isDirty: false, saving: false });
+  }, [updateContext]);
+
   const fmt = (mark: string) => editor?.isActive(mark) ?? false;
 
   return (
     <>
       <GlobalStyles styles={{
-        /* Placeholder via CSS */
         '.d11n-editor .is-empty::before': {
           content: 'attr(data-placeholder)',
           color: 'rgba(0,0,0,0.3)',
@@ -169,97 +163,6 @@ export function DocumentEditor({ doc }: Props) {
           height: 0,
         },
       }} />
-
-      {/* Slim header */}
-      <Box sx={{
-        display: 'flex',
-        alignItems: 'center',
-        px: 3,
-        py: 0.75,
-        borderBottom: '1px solid',
-        borderColor: 'divider',
-        position: 'sticky',
-        top: 0,
-        zIndex: 10,
-        bgcolor: 'background.paper',
-        minHeight: 44,
-      }}>
-        <Breadcrumbs sx={{ flex: 1, '& .MuiBreadcrumbs-ol': { flexWrap: 'nowrap' } }}>
-          <Typography variant="body2" color="text.secondary"
-            sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-            onClick={() => router.push('/')}>
-            Home
-          </Typography>
-          <Typography variant="body2" color="text.secondary"
-            sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-            onClick={() => router.push(`/spaces/${doc.spaceId}`)}>
-            {doc.spaceId}
-          </Typography>
-          <Typography variant="body2" color="text.primary">{title || doc.slug}</Typography>
-        </Breadcrumbs>
-
-        <Tooltip title={tocVisible ? 'Hide table of contents' : 'Show table of contents'}>
-          <IconButton size="small" onClick={handleTocToggle} color={tocVisible ? 'primary' : 'default'}>
-            <TocOutlinedIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-
-        <Tooltip title={historyOpen ? 'Hide history' : 'Show history'}>
-          <IconButton size="small" onClick={() => setHistoryOpen(v => !v)} color={historyOpen ? 'primary' : 'default'}>
-            <HistoryOutlinedIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-
-        {saving && <CircularProgress size={14} sx={{ mr: 0.5 }} />}
-
-        {/* Split save: quick save + dropdown for more options */}
-        <Tooltip title={isDirty ? 'Save (⌘S)' : 'Saved'}>
-          <span>
-            <IconButton
-              size="small"
-              onClick={() => handleSave()}
-              disabled={saving || !isDirty}
-              color={isDirty ? 'primary' : 'default'}
-            >
-              <SaveOutlinedIcon fontSize="small" />
-            </IconButton>
-          </span>
-        </Tooltip>
-        <Tooltip title="More save options">
-          <span>
-            <IconButton
-              size="small"
-              onClick={e => setSaveMenuAnchor(e.currentTarget)}
-              disabled={saving || !isDirty}
-              color={isDirty ? 'primary' : 'default'}
-              sx={{ ml: -0.75 }}
-            >
-              <ArrowDropDownIcon sx={{ fontSize: 18 }} />
-            </IconButton>
-          </span>
-        </Tooltip>
-
-        <Menu
-          anchorEl={saveMenuAnchor}
-          open={Boolean(saveMenuAnchor)}
-          onClose={() => setSaveMenuAnchor(null)}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-          slotProps={{ paper: { elevation: 3, sx: { minWidth: 220 } } }}
-        >
-          <MenuItem
-            onClick={() => { setSaveMenuAnchor(null); setSaveDialogOpen(true); }}
-            dense
-          >
-            <ListItemIcon><EditNoteIcon fontSize="small" /></ListItemIcon>
-            <ListItemText
-              primary="Save with message…"
-              secondary="Customize the commit message"
-              slotProps={{ secondary: { variant: 'caption' } }}
-            />
-          </MenuItem>
-        </Menu>
-      </Box>
 
       {/* Bubble menu — appears on text selection */}
       {editor && (
@@ -303,63 +206,60 @@ export function DocumentEditor({ doc }: Props) {
         </BubbleMenu>
       )}
 
-      {/* BlockHandle — drag handle + context menu, appears left of hovered block */}
       {editor && <BlockHandle editor={editor} />}
-
-      {/* TableHandles — per-row and per-column handles with context menu */}
       {editor && <TableHandles editor={editor} />}
 
-      {/* Three-column layout: TOC | content | spacer */}
-      <Box sx={{ display: 'flex', width: '100%' }}>
-
-        {/* TOC column — visible only when enabled and viewport is wide enough */}
-        {tocVisible && (
-          <Box sx={{
-            display: { xs: 'none', xl: 'flex' },
-            width: 220,
-            flexShrink: 0,
-            flexDirection: 'column',
-            alignItems: 'flex-end',
-          }}>
-            <Box sx={{ position: 'sticky', top: 44, pt: 5, pr: 2, width: 200 }}>
-              <TableOfContents
-                items={tocItems}
-                activeId={tocActiveId}
-                onItemClick={tocScrollTo}
-              />
-            </Box>
+      {/* Content — centered, white, full height */}
+      <Box sx={{
+        minHeight: '100vh',
+        bgcolor: '#fff',
+        pt: '80px',
+        pb: 16,
+      }}>
+        <Box sx={{
+          maxWidth: 720,
+          mx: 'auto',
+          px: { xs: 3, sm: 5, md: 8 },
+        }}>
+          {/* Breadcrumb */}
+          <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography variant="caption" color="text.disabled" sx={{ fontWeight: 500 }}>
+              {doc.spaceId}
+            </Typography>
+            <Typography variant="caption" color="text.disabled" sx={{ mx: 0.25 }}>/</Typography>
+            <Typography variant="caption" color="text.secondary">
+              {title || doc.slug}
+            </Typography>
           </Box>
-        )}
 
-        {/* Editor content */}
-        <Box sx={{ flex: 1, minWidth: 0, px: { xs: 3, md: 8 }, py: 5, maxWidth: 800, mx: 'auto', width: '100%' }}>
-        <InputBase
-          value={title}
-          onChange={e => { setTitle(e.target.value); setIsDirty(true); }}
-          placeholder="Untitled"
-          fullWidth
-          sx={{
-            mb: 3,
-            '& input': {
-              p: 0,
-              fontSize: '2rem',
-              fontWeight: 700,
-              letterSpacing: '-0.5px',
-              lineHeight: 1.2,
-              color: 'text.primary',
-              fontFamily: 'inherit',
-            },
-          }}
-        />
+          {/* Title */}
+          <InputBase
+            value={title}
+            onChange={e => { setTitle(e.target.value); setIsDirty(true); }}
+            placeholder="Untitled"
+            fullWidth
+            sx={{
+              mb: 3,
+              '& input': {
+                p: 0,
+                fontSize: '2rem',
+                fontWeight: 700,
+                letterSpacing: '-0.5px',
+                lineHeight: 1.2,
+                color: 'text.primary',
+                fontFamily: 'inherit',
+              },
+            }}
+          />
 
-        {saveError && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSaveError(null)}>
-            {saveError}
-          </Alert>
-        )}
+          {saveError && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSaveError(null)}>
+              {saveError}
+            </Alert>
+          )}
 
-        <Box
-          sx={{
+          {/* Editor */}
+          <Box sx={{
             '& .d11n-editor': {
               outline: 'none',
               minHeight: '60vh',
@@ -419,10 +319,7 @@ export function DocumentEditor({ doc }: Props) {
               minWidth: 80,
               position: 'relative',
             },
-            '& .d11n-editor th': {
-              fontWeight: 600,
-              textAlign: 'left',
-            },
+            '& .d11n-editor th': { fontWeight: 600, textAlign: 'left' },
             '& .d11n-editor .selectedCell::after': {
               content: '""',
               position: 'absolute',
@@ -431,17 +328,10 @@ export function DocumentEditor({ doc }: Props) {
               border: '2px solid',
               borderColor: 'primary.main',
             },
-          }}
-        >
-          <EditorContent editor={editor} />
+          }}>
+            <EditorContent editor={editor} />
+          </Box>
         </Box>
-        </Box>
-
-        {/* Right spacer — mirrors TOC column to keep content centered */}
-        {tocVisible && (
-          <Box sx={{ display: { xs: 'none', xl: 'block' }, width: 220, flexShrink: 0 }} />
-        )}
-
       </Box>
 
       <HistoryPanel

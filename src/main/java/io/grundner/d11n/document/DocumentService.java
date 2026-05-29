@@ -45,7 +45,7 @@ public class DocumentService {
         }
     }
 
-    public Document createDocument(String spaceId, String slug, DocumentRequest request) throws IOException, GitAPIException {
+    public Document createDocument(String spaceId, String slug, DocumentRequest request, String currentUser) throws IOException, GitAPIException {
         try (GitRepository repo = spaceService.openRepository(spaceId)) {
             String filePath = pathFromSlug(slug);
             if (repo.readFile(filePath).isPresent()) {
@@ -54,12 +54,12 @@ public class DocumentService {
             Instant now = Instant.now();
             String fileContent = buildFileContent(request, now, now);
             repo.writeAndCommit(filePath, fileContent, "docs: create " + slug,
-                    resolveAuthor(request.author()), properties.getDefaultEmail());
+                    resolveAuthor(currentUser), properties.getDefaultEmail());
             return parseDocument(slug, spaceId, fileContent);
         }
     }
 
-    public Document updateDocument(String spaceId, String slug, DocumentRequest request) throws IOException, GitAPIException {
+    public Document updateDocument(String spaceId, String slug, DocumentRequest request, String currentUser) throws IOException, GitAPIException {
         try (GitRepository repo = spaceService.openRepository(spaceId)) {
             String filePath = pathFromSlug(slug);
             String existing = repo.readFile(filePath)
@@ -69,7 +69,7 @@ public class DocumentService {
             String fileContent = buildFileContent(request, createdAt, Instant.now());
             repo.writeAndCommit(filePath, fileContent,
                     resolveMessage(request.commitMessage(), "docs: update " + slug),
-                    resolveAuthor(request.author()), properties.getDefaultEmail());
+                    resolveAuthor(currentUser), properties.getDefaultEmail());
             return parseDocument(slug, spaceId, fileContent);
         }
     }

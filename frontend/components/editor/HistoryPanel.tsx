@@ -1,7 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
-import Drawer from '@mui/material/Drawer';
 import Box from '@mui/material/Box';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
+import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -25,8 +28,6 @@ interface Props {
   slug: string;
   reloadKey?: number;
 }
-
-const DRAWER_WIDTH = 300;
 
 function getInitials(name: string): string {
   return name.split(/\s+/).slice(0, 2).map(p => p[0] ?? '').join('').toUpperCase();
@@ -107,98 +108,65 @@ export function HistoryPanel({ open, onClose, spaceId, slug, reloadKey }: Props)
   const groups = commits ? groupCommits(commits) : [];
 
   return (
-    <Drawer
-      anchor="right"
-      open={open}
-      onClose={onClose}
-      hideBackdrop
-      disableScrollLock
-      variant="temporary"
-      sx={{
-        pointerEvents: 'none',
-        '& .MuiDrawer-paper': {
-          width: DRAWER_WIDTH,
-          top: 44,
-          height: 'calc(100% - 44px)',
-          boxShadow: '-4px 0 12px rgba(0,0,0,0.08)',
-          borderLeft: '1px solid',
-          borderColor: 'divider',
-          pointerEvents: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-        },
-      }}
-    >
-      {/* Panel header */}
-      <Box sx={{
-        display: 'flex',
-        alignItems: 'center',
-        px: 2,
-        py: 1,
-        borderBottom: '1px solid',
-        borderColor: 'divider',
-        flexShrink: 0,
-      }}>
-        <Typography variant="subtitle2" sx={{ flex: 1, fontWeight: 600 }}>
-          Change history
-        </Typography>
-        <IconButton size="small" onClick={onClose}>
-          <CloseIcon fontSize="small" />
-        </IconButton>
-      </Box>
-
-      {/* Content */}
-      <Box sx={{ flex: 1, overflowY: 'auto' }}>
-        {loading && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', pt: 4 }}>
-            <CircularProgress size={24} />
-          </Box>
-        )}
-        {error && (
-          <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>
-        )}
-        {commits && commits.length === 0 && (
-          <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
-            No changes found.
+    <>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        maxWidth="sm"
+        fullWidth
+        slotProps={{ paper: { sx: { maxHeight: '80vh', borderRadius: 3 } } }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', pb: 1 }}>
+          <Typography component="span" sx={{ flex: 1, fontWeight: 600, fontSize: '1rem' }}>
+            Change history
           </Typography>
-        )}
-        {groups.map((group, i) => (
-          <Accordion
-            key={group.label}
-            defaultExpanded={NAMED_GROUPS.includes(group.label)}
-            disableGutters
-            elevation={0}
-            sx={{
-              '&:before': { display: 'none' },
-              borderBottom: '1px solid',
-              borderColor: 'divider',
-            }}
-          >
-            <AccordionSummary
-              expandIcon={<ExpandMoreIcon fontSize="small" />}
-              sx={{
-                px: 2,
-                minHeight: 36,
-                '& .MuiAccordionSummary-content': { my: 0.75 },
-              }}
+          <IconButton size="small" onClick={onClose}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+
+        <Divider />
+
+        <DialogContent sx={{ p: 0, overflowY: 'auto' }}>
+          {loading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress size={24} />
+            </Box>
+          )}
+          {error && <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>}
+          {commits && commits.length === 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ p: 3, textAlign: 'center' }}>
+              No changes found.
+            </Typography>
+          )}
+          {groups.map(group => (
+            <Accordion
+              key={group.label}
+              defaultExpanded={NAMED_GROUPS.includes(group.label)}
+              disableGutters
+              elevation={0}
+              sx={{ '&:before': { display: 'none' }, borderBottom: '1px solid', borderColor: 'divider' }}
             >
-              <Typography variant="caption" sx={{
-                fontWeight: 600,
-                color: 'text.secondary',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-              }}>
-                {group.label}
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails sx={{ p: 0 }}>
-              {group.commits.map(commit => (
-                <CommitItem key={commit.hash} commit={commit} onClick={() => setSelectedCommit(commit)} />
-              ))}
-            </AccordionDetails>
-          </Accordion>
-        ))}
-      </Box>
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon fontSize="small" />}
+                sx={{ px: 2.5, minHeight: 36, '& .MuiAccordionSummary-content': { my: 0.75 } }}
+              >
+                <Typography variant="caption" sx={{
+                  fontWeight: 600, color: 'text.secondary',
+                  textTransform: 'uppercase', letterSpacing: '0.06em',
+                }}>
+                  {group.label}
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 0 }}>
+                {group.commits.map(commit => (
+                  <CommitItem key={commit.hash} commit={commit} onClick={() => setSelectedCommit(commit)} />
+                ))}
+              </AccordionDetails>
+            </Accordion>
+          ))}
+        </DialogContent>
+      </Dialog>
 
       {selectedCommit && (
         <CommitDiffDialog
@@ -209,7 +177,7 @@ export function HistoryPanel({ open, onClose, spaceId, slug, reloadKey }: Props)
           slug={slug}
         />
       )}
-    </Drawer>
+    </>
   );
 }
 

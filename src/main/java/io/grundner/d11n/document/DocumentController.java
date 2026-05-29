@@ -3,6 +3,8 @@ package io.grundner.d11n.document;
 import lombok.RequiredArgsConstructor;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,14 +39,16 @@ public class DocumentController {
     @PostMapping("/{slug}")
     @ResponseStatus(HttpStatus.CREATED)
     public Document createDocument(@PathVariable String spaceId, @PathVariable String slug,
-                                   @RequestBody DocumentRequest request) throws IOException, GitAPIException {
-        return documentService.createDocument(spaceId, slug, request);
+                                   @RequestBody DocumentRequest request,
+                                   @AuthenticationPrincipal UserDetails principal) throws IOException, GitAPIException {
+        return documentService.createDocument(spaceId, slug, request, principal.getUsername());
     }
 
     @PutMapping("/{slug}")
     public Document updateDocument(@PathVariable String spaceId, @PathVariable String slug,
-                                   @RequestBody DocumentRequest request) throws IOException, GitAPIException {
-        return documentService.updateDocument(spaceId, slug, request);
+                                   @RequestBody DocumentRequest request,
+                                   @AuthenticationPrincipal UserDetails principal) throws IOException, GitAPIException {
+        return documentService.updateDocument(spaceId, slug, request, principal.getUsername());
     }
 
     @DeleteMapping("/{slug}")
