@@ -15,6 +15,7 @@ export interface DocumentState {
   onOpenSaveDialog: () => void;
   onEnterEdit: () => void;
   onExitEdit: () => void;
+  onShare: () => void;
 }
 
 const defaultState: DocumentState = {
@@ -31,6 +32,7 @@ const defaultState: DocumentState = {
   onOpenSaveDialog: () => {},
   onEnterEdit: () => {},
   onExitEdit: () => {},
+  onShare: () => {},
 };
 
 // Read context — consumed by MenuBar

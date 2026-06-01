@@ -2,17 +2,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
-import Breadcrumbs from '@mui/material/Breadcrumbs';
 import IconButton from '@mui/material/IconButton';
 import InputBase from '@mui/material/InputBase';
-import Link from '@mui/material/Link';
 import Tooltip from '@mui/material/Tooltip';
+import { AppBreadcrumbs } from './AppBreadcrumbs';
 import Typography from '@mui/material/Typography';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined';
 import NoteAddOutlinedIcon from '@mui/icons-material/NoteAddOutlined';
 import CreateNewFolderOutlinedIcon from '@mui/icons-material/CreateNewFolderOutlined';
 import DriveFileRenameOutlineIcon from '@mui/icons-material/DriveFileRenameOutline';
+import IosShareOutlinedIcon from '@mui/icons-material/IosShareOutlined';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
@@ -21,6 +21,8 @@ import { api } from '@/lib/api';
 import type { TreeNode } from '@/lib/types';
 import { ResourceList, ResourceRow } from './ResourceList';
 import type { RowAction } from './ResourceList';
+import { ShareDialog } from './ShareDialog';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface Props {
   spaceId: string;
@@ -98,22 +100,7 @@ export function SpaceBrowser({ spaceId, path }: Props) {
     }
   };
 
-  const breadcrumbNode = (
-    <Breadcrumbs sx={{ mb: 3 }}>
-      {crumbs.map((crumb, i) => {
-        const isLast = i === crumbs.length - 1;
-        return isLast && i > 0 ? (
-          <Typography key={crumb.href} variant="body2" color="text.primary" sx={{ fontWeight: 600 }}>
-            {crumb.label}
-          </Typography>
-        ) : (
-          <Link key={crumb.href} component={NextLink} href={crumb.href} underline="hover" color="text.secondary" variant="body2">
-            {crumb.label}
-          </Link>
-        );
-      })}
-    </Breadcrumbs>
-  );
+  const breadcrumbNode = <AppBreadcrumbs crumbs={crumbs} sx={{ mb: 3 }} />;
 
   // Folder not found — still render the breadcrumb but no list
   if (!loading && nodes === null) {
@@ -211,11 +198,7 @@ export function SpaceBrowser({ spaceId, path }: Props) {
             key={node.path}
             node={node}
             spaceId={spaceId}
-            onDelete={async () => {
-              if (!confirm(`Delete folder "${node.name}" and all its contents?`)) return;
-              await api.folders.delete(spaceId, node.path);
-              load();
-            }}
+            onDelete={async () => { await api.folders.delete(spaceId, node.path); load(); }}
             onRename={async (newName) => { await api.folders.rename(spaceId, node.path, newName); load(); }}
           />
         ) : (
@@ -223,11 +206,7 @@ export function SpaceBrowser({ spaceId, path }: Props) {
             key={node.path}
             node={node}
             spaceId={spaceId}
-            onDelete={async () => {
-              if (!confirm(`Delete document "${node.title || node.name}"?`)) return;
-              await api.documents.delete(spaceId, node.path);
-              load();
-            }}
+            onDelete={async () => { await api.documents.delete(spaceId, node.path); load(); }}
           />
         )
       )}
@@ -245,6 +224,8 @@ function FolderRow({ node, spaceId, onDelete, onRename }: {
 }) {
   const [renaming, setRenaming] = useState(false);
   const [newName, setNewName] = useState(node.name);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const submitRename = () => {
     const name = newName.trim();
@@ -255,6 +236,11 @@ function FolderRow({ node, spaceId, onDelete, onRename }: {
 
   const rowActions: RowAction[] = [
     {
+      tooltip: 'Share',
+      icon: <IosShareOutlinedIcon sx={{ fontSize: 16 }} />,
+      onClick: (e) => { e.stopPropagation(); setShareOpen(true); },
+    },
+    {
       tooltip: 'Rename',
       icon: <DriveFileRenameOutlineIcon sx={{ fontSize: 16 }} />,
       onClick: (e) => { e.stopPropagation(); setRenaming(true); },
@@ -262,70 +248,116 @@ function FolderRow({ node, spaceId, onDelete, onRename }: {
     {
       tooltip: 'Delete',
       icon: <DeleteIcon sx={{ fontSize: 16 }} />,
-      onClick: (e) => { e.stopPropagation(); onDelete(); },
+      onClick: (e) => { e.stopPropagation(); setConfirmOpen(true); },
     },
   ];
 
   return (
-    <ResourceRow
-      icon={<FolderOutlinedIcon sx={{ fontSize: 20, color: 'primary.main', flexShrink: 0 }} />}
-      actions={renaming ? [] : rowActions}
-    >
-      {renaming ? (
-        <>
-          <InputBase
-            autoFocus
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') submitRename();
-              if (e.key === 'Escape') { setRenaming(false); setNewName(node.name); }
-            }}
+    <>
+      <ResourceRow
+        icon={<FolderOutlinedIcon sx={{ fontSize: 20, color: 'primary.main', flexShrink: 0 }} />}
+        actions={renaming ? [] : rowActions}
+      >
+        {renaming ? (
+          <>
+            <InputBase
+              autoFocus
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') submitRename();
+                if (e.key === 'Escape') { setRenaming(false); setNewName(node.name); }
+              }}
+              onClick={e => e.stopPropagation()}
+              sx={{ flex: 1, fontSize: '0.875rem', '& input': { p: 0 } }}
+            />
+            <Tooltip title="Confirm"><IconButton size="small" onClick={submitRename}><CheckIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+            <Tooltip title="Cancel"><IconButton size="small" onClick={() => { setRenaming(false); setNewName(node.name); }}><CloseIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+          </>
+        ) : (
+          <Typography
+            variant="body2"
+            component={NextLink}
+            href={`/spaces/${spaceId}/${node.path}`}
             onClick={e => e.stopPropagation()}
-            sx={{ flex: 1, fontSize: '0.875rem', '& input': { p: 0 } }}
-          />
-          <Tooltip title="Confirm"><IconButton size="small" onClick={submitRename}><CheckIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
-          <Tooltip title="Cancel"><IconButton size="small" onClick={() => { setRenaming(false); setNewName(node.name); }}><CloseIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
-        </>
-      ) : (
-        <Typography
-          variant="body2"
-          component={NextLink}
-          href={`/spaces/${spaceId}/${node.path}`}
-          onClick={e => e.stopPropagation()}
-          sx={{ flex: 1, fontWeight: 500, textDecoration: 'none', color: 'inherit' }}
-        >
-          {node.name}
-        </Typography>
-      )}
-    </ResourceRow>
+            sx={{ flex: 1, fontWeight: 500, textDecoration: 'none', color: 'inherit' }}
+          >
+            {node.name}
+          </Typography>
+        )}
+      </ResourceRow>
+
+      <ShareDialog
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        resourceType="folder"
+        spaceId={spaceId}
+        resourcePath={node.path}
+        resourceLabel={node.name}
+      />
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title={`Delete "${node.name}"?`}
+        message="Der Ordner und alle darin enthaltenen Dokumente werden unwiderruflich gelöscht."
+        onConfirm={() => { setConfirmOpen(false); onDelete(); }}
+        onCancel={() => setConfirmOpen(false)}
+      />
+    </>
   );
 }
 
 // ---------------------------------------------------------------------------
 
 function DocumentRow({ node, spaceId, onDelete }: { node: TreeNode; spaceId: string; onDelete: () => void }) {
+  const [shareOpen, setShareOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
   const rowActions: RowAction[] = [
+    {
+      tooltip: 'Share',
+      icon: <IosShareOutlinedIcon sx={{ fontSize: 16 }} />,
+      onClick: (e) => { e.stopPropagation(); setShareOpen(true); },
+    },
     {
       tooltip: 'Delete',
       icon: <DeleteIcon sx={{ fontSize: 16 }} />,
-      onClick: (e) => { e.stopPropagation(); onDelete(); },
+      onClick: (e) => { e.stopPropagation(); setConfirmOpen(true); },
     },
   ];
 
   return (
-    <ResourceRow
-      icon={<InsertDriveFileOutlinedIcon sx={{ fontSize: 20, color: 'text.disabled', flexShrink: 0 }} />}
-      actions={rowActions}
-    >
-      <Typography
-        variant="body2"
-        component={NextLink}
-        href={`/spaces/${spaceId}/${node.path}`}
-        sx={{ flex: 1, textDecoration: 'none', color: 'inherit' }}
+    <>
+      <ResourceRow
+        icon={<InsertDriveFileOutlinedIcon sx={{ fontSize: 20, color: 'text.disabled', flexShrink: 0 }} />}
+        actions={rowActions}
       >
-        {node.title || node.name}
-      </Typography>
-    </ResourceRow>
+        <Typography
+          variant="body2"
+          component={NextLink}
+          href={`/spaces/${spaceId}/${node.path}`}
+          sx={{ flex: 1, textDecoration: 'none', color: 'inherit' }}
+        >
+          {node.title || node.name}
+        </Typography>
+      </ResourceRow>
+
+      <ShareDialog
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        resourceType="document"
+        spaceId={spaceId}
+        resourcePath={node.path}
+        resourceLabel={node.title || node.name}
+      />
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title={`Delete "${node.title || node.name}"?`}
+        message="Das Dokument wird unwiderruflich gelöscht."
+        onConfirm={() => { setConfirmOpen(false); onDelete(); }}
+        onCancel={() => setConfirmOpen(false)}
+      />
+    </>
   );
 }

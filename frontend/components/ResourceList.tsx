@@ -8,7 +8,7 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 
-export interface HeaderAction {
+interface HeaderAction {
   label: string;
   icon: React.ReactNode;
   onClick: () => void;

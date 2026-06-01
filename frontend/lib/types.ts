@@ -34,6 +34,31 @@ export interface DiffResponse {
   diff: string;
 }
 
+export type ShareType = 'EXTERNAL' | 'INTERNAL';
+export type ResourceType = 'space' | 'folder' | 'document';
+
+export interface ShareInfo {
+  token: string;
+  type: ShareType;
+  resourceType: ResourceType;
+  spaceId: string;
+  resourcePath: string | null;
+  label: string | null;
+  expiresAt: string | null;
+  createdBy: string;
+  createdAt: string;
+  expired: boolean;
+}
+
+export interface ShareRequest {
+  type: ShareType;
+  resourceType: ResourceType;
+  spaceId: string;
+  resourcePath: string | null;
+  label: string | null;
+  expiresAt: string | null;
+}
+
 export interface TreeNode {
   name: string;
   path: string;

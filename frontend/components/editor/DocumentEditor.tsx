@@ -7,7 +7,6 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { TableKit } from '@tiptap/extension-table';
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import Box from '@mui/material/Box';
-import Breadcrumbs from '@mui/material/Breadcrumbs';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -15,9 +14,8 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import InputBase from '@mui/material/InputBase';
-import MuiLink from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
-import NextLink from 'next/link';
+import { AppBreadcrumbs } from '@/components/AppBreadcrumbs';
 import ToggleButton from '@mui/material/ToggleButton';
 import Tooltip from '@mui/material/Tooltip';
 import GlobalStyles from '@mui/material/GlobalStyles';
@@ -38,6 +36,7 @@ import { SaveMessageDialog } from './SaveMessageDialog';
 import { useDocumentSetter } from '@/contexts/DocumentContext';
 import { useDocumentLock } from '@/hooks/useDocumentLock';
 import { useNotify } from '@/contexts/NotificationContext';
+import { ShareDialog } from '@/components/ShareDialog';
 
 interface Props {
   doc: Document;
@@ -69,6 +68,7 @@ export function DocumentEditor({ doc }: Props) {
   const [lastCommitMessage, setLastCommitMessage] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [pendingDraft, setPendingDraft] = useState<Draft | null>(null);
   const [changeCount, setChangeCount] = useState(0);
   const mountedRef = useRef(false);
@@ -281,6 +281,7 @@ export function DocumentEditor({ doc }: Props) {
       onOpenSaveDialog: () => setSaveDialogOpen(true),
       onEnterEdit: handleEnterEdit,
       onExitEdit: handleExitEdit,
+      onShare: () => setShareOpen(true),
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [updateContext, doc.spaceId, doc.slug, title, isDirty, saving, saveCount,
@@ -292,6 +293,16 @@ export function DocumentEditor({ doc }: Props) {
   }, [updateContext]);
 
   const fmt = (mark: string) => editor?.isActive(mark) ?? false;
+
+  const slugParts = doc.slug.split('/');
+  const docCrumbs = [
+    { label: doc.spaceId, href: `/spaces/${doc.spaceId}` },
+    ...slugParts.slice(0, -1).map((part, i) => ({
+      label: part,
+      href: `/spaces/${doc.spaceId}/${slugParts.slice(0, i + 1).join('/')}`,
+    })),
+    { label: title || slugParts[slugParts.length - 1] },
+  ];
 
   return (
     <>
@@ -363,32 +374,7 @@ export function DocumentEditor({ doc }: Props) {
           px: { xs: 3, sm: 5, md: 8 },
         }}>
           {/* Breadcrumb */}
-          {(() => {
-            const slugParts = doc.slug.split('/');
-            const folderParts = slugParts.slice(0, -1);
-            return (
-              <Breadcrumbs sx={{ mb: 4 }}>
-                <MuiLink component={NextLink} href={`/spaces/${doc.spaceId}`} underline="hover" color="text.disabled" variant="caption" sx={{ fontWeight: 500 }}>
-                  {doc.spaceId}
-                </MuiLink>
-                {folderParts.map((part, i) => (
-                  <MuiLink
-                    key={i}
-                    component={NextLink}
-                    href={`/spaces/${doc.spaceId}/${slugParts.slice(0, i + 1).join('/')}`}
-                    underline="hover"
-                    color="text.disabled"
-                    variant="caption"
-                  >
-                    {part}
-                  </MuiLink>
-                ))}
-                <Typography variant="caption" color="text.secondary">
-                  {title || slugParts[slugParts.length - 1]}
-                </Typography>
-              </Breadcrumbs>
-            );
-          })()}
+          <AppBreadcrumbs crumbs={docCrumbs} sx={{ mb: 4 }} />
 
           {/* Title */}
           <InputBase
@@ -527,6 +513,15 @@ export function DocumentEditor({ doc }: Props) {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ShareDialog
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        resourceType="document"
+        spaceId={doc.spaceId}
+        resourcePath={doc.slug}
+        resourceLabel={title || doc.slug}
+      />
 
       <Dialog open={confirmDiscardOpen} onClose={() => setConfirmDiscardOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Discard unsaved changes?</DialogTitle>

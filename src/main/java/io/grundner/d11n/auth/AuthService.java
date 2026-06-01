@@ -58,6 +58,23 @@ public class AuthService implements UserDetailsService {
         userRepository.save(user);
     }
 
+    public void syncSuperuser(String username, String email, String password) {
+        userRepository.findByUsername(username).ifPresentOrElse(user -> {
+            user.setEmail(email);
+            user.setPassword(passwordEncoder.encode(password));
+            user.setRole(Role.SUPERUSER);
+            userRepository.save(user);
+        }, () -> {
+            User user = User.builder()
+                .username(username)
+                .email(email)
+                .password(passwordEncoder.encode(password))
+                .role(Role.SUPERUSER)
+                .build();
+            userRepository.save(user);
+        });
+    }
+
     private AuthResponse toResponse(User user) {
         return new AuthResponse(jwtUtil.generateToken(user.getUsername()), user.getUsername(), user.getRole().name());
     }

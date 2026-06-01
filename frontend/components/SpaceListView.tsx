@@ -5,11 +5,10 @@ import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import InputBase from '@mui/material/InputBase';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import WorkspacesOutlinedIcon from '@mui/icons-material/WorkspacesOutlined';
 import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
-import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import IosShareOutlinedIcon from '@mui/icons-material/IosShareOutlined';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
@@ -17,6 +16,8 @@ import { api } from '@/lib/api';
 import type { Space } from '@/lib/types';
 import { ResourceList, ResourceRow } from './ResourceList';
 import type { RowAction } from './ResourceList';
+import { ShareDialog } from './ShareDialog';
+import { ConfirmDialog } from './ConfirmDialog';
 
 const VALID_ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/;
 
@@ -49,12 +50,6 @@ export function SpaceListView() {
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Fehler beim Anlegen.');
     }
-  };
-
-  const handleDelete = async (space: Space) => {
-    if (!confirm(`Space "${space.name}" und alle darin enthaltenen Dokumente unwiderruflich löschen?`)) return;
-    await api.spaces.delete(space.id);
-    load();
   };
 
   const createForm = creating && (
@@ -99,8 +94,7 @@ export function SpaceListView() {
         <SpaceRow
           key={space.id}
           space={space}
-          onDelete={() => handleDelete(space)}
-          onRenamed={load}
+          onDelete={async () => { await api.spaces.delete(space.id); load(); }}
         />
       ))}
     </ResourceList>
@@ -112,79 +106,70 @@ export function SpaceListView() {
 interface SpaceRowProps {
   space: Space;
   onDelete: () => void;
-  onRenamed: () => void;
 }
 
-function SpaceRow({ space, onDelete, onRenamed }: SpaceRowProps) {
+function SpaceRow({ space, onDelete }: SpaceRowProps) {
   const router = useRouter();
-  const [renaming, setRenaming] = useState(false);
-  const [newName, setNewName] = useState(space.name);
-
-  const submitRename = async () => {
-    const name = newName.trim();
-    if (!name || name === space.name) { setRenaming(false); setNewName(space.name); return; }
-    await api.spaces.settings.update(space.id, { name });
-    setRenaming(false);
-    onRenamed();
-  };
+  const [shareOpen, setShareOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const rowActions: RowAction[] = [
     {
-      tooltip: 'Rename',
-      icon: <SettingsOutlinedIcon sx={{ fontSize: 16 }} />,
-      onClick: (e) => { e.stopPropagation(); setRenaming(true); },
+      tooltip: 'Share',
+      icon: <IosShareOutlinedIcon sx={{ fontSize: 16 }} />,
+      onClick: (e) => { e.stopPropagation(); setShareOpen(true); },
     },
     {
       tooltip: 'Delete',
       icon: <DeleteIcon sx={{ fontSize: 16 }} />,
-      onClick: (e) => { e.stopPropagation(); onDelete(); },
+      onClick: (e) => { e.stopPropagation(); setConfirmOpen(true); },
     },
   ];
 
   return (
-    <ResourceRow
-      icon={<WorkspacesOutlinedIcon sx={{ fontSize: 20, color: 'primary.main', flexShrink: 0 }} />}
-      actions={renaming ? [] : rowActions}
-    >
-      {renaming ? (
-        <>
-          <InputBase
-            autoFocus
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') submitRename();
-              if (e.key === 'Escape') { setRenaming(false); setNewName(space.name); }
-            }}
-            sx={{ flex: 1, fontSize: '0.875rem', fontWeight: 500, '& input': { p: 0 } }}
-          />
-          <Tooltip title="Confirm"><IconButton size="small" onClick={submitRename}><CheckIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
-          <Tooltip title="Cancel"><IconButton size="small" onClick={() => { setRenaming(false); setNewName(space.name); }}><CloseIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
-        </>
-      ) : (
-        <>
-          <Box
-            sx={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
-            onClick={() => router.push(`/spaces/${space.id}`)}
-          >
-            <Typography variant="body2" sx={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {space.name}
+    <>
+      <ResourceRow
+        icon={<WorkspacesOutlinedIcon sx={{ fontSize: 20, color: 'primary.main', flexShrink: 0 }} />}
+        actions={rowActions}
+      >
+        <Box
+          sx={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+          onClick={() => router.push(`/spaces/${space.id}`)}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {space.name}
+          </Typography>
+          {space.id !== space.name && (
+            <Typography variant="caption" color="text.disabled" sx={{ display: 'block' }}>
+              {space.id}
             </Typography>
-            {space.id !== space.name && (
-              <Typography variant="caption" color="text.disabled" sx={{ display: 'block' }}>
-                {space.id}
-              </Typography>
-            )}
-          </Box>
-          {typeof space.documentCount === 'number' && (
-            <Chip
-              label={`${space.documentCount} ${space.documentCount === 1 ? 'doc' : 'docs'}`}
-              size="small"
-              sx={{ height: 20, fontSize: '0.7rem', bgcolor: 'action.selected', color: 'text.secondary', '& .MuiChip-label': { px: 1 } }}
-            />
           )}
-        </>
-      )}
-    </ResourceRow>
+        </Box>
+        {typeof space.documentCount === 'number' && (
+          <Chip
+            label={`${space.documentCount} ${space.documentCount === 1 ? 'doc' : 'docs'}`}
+            size="small"
+            sx={{ height: 20, fontSize: '0.7rem', bgcolor: 'action.selected', color: 'text.secondary', '& .MuiChip-label': { px: 1 } }}
+          />
+        )}
+      </ResourceRow>
+
+      <ShareDialog
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        resourceType="space"
+        spaceId={space.id}
+        resourcePath={null}
+        resourceLabel={space.name}
+      />
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title={`Delete "${space.name}"?`}
+        message="Alle darin enthaltenen Dokumente werden unwiderruflich gelöscht."
+        onConfirm={() => { setConfirmOpen(false); onDelete(); }}
+        onCancel={() => setConfirmOpen(false)}
+      />
+    </>
   );
 }

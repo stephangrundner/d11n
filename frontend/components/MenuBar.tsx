@@ -13,6 +13,7 @@ import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import IosShareOutlinedIcon from '@mui/icons-material/IosShareOutlined';
 import NextLink from 'next/link';
 import { useDocumentContext } from '@/contexts/DocumentContext';
 import { getClientToken, getUsernameFromToken } from '@/lib/auth';
@@ -173,6 +174,29 @@ export function MenuBar() {
         </Tooltip>
 
         <Box sx={{ flex: 1, minWidth: 24 }} />
+
+        {/* Share current document */}
+        <Tooltip
+          title={!hasDoc ? 'No document open' : 'Share document'}
+          placement="bottom"
+          arrow
+        >
+          <span>
+            <IconButton
+              size="small"
+              disabled={!hasDoc}
+              onClick={doc.onShare}
+              sx={{ '&:not(:disabled)': { color: 'inherit' } }}
+            >
+              <IosShareOutlinedIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </span>
+        </Tooltip>
+
+        <Divider orientation="vertical" flexItem sx={{
+          mx: 0.5, my: 0.75,
+          borderColor: doc.isEditing ? 'rgba(255,255,255,0.25)' : 'divider',
+        }} />
 
         {/* Account */}
         <Tooltip title={username ?? 'Account'} placement="bottom" arrow>

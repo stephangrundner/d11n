@@ -33,6 +33,7 @@ public class SecurityConfig {
             .httpBasic(basic -> basic.disable())
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/shared/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 // SSO callback URLs (needed when oauth2-client is enabled)
                 .requestMatchers("/login/oauth2/**", "/oauth2/**").permitAll()

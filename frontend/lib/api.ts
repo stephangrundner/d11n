@@ -1,4 +1,4 @@
-import type { Space, Document, CommitInfo, DiffResponse, SpaceSettings, TreeNode } from './types';
+import type { Space, Document, CommitInfo, DiffResponse, SpaceSettings, TreeNode, ShareInfo, ShareRequest } from './types';
 import { getClientToken, clearToken } from './auth';
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
@@ -81,6 +81,26 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ newName }),
       }),
+  },
+  shares: {
+    create: (req: ShareRequest) =>
+      apiFetch<ShareInfo>('/api/shares', { method: 'POST', body: JSON.stringify(req) }),
+    listMine: () =>
+      apiFetch<ShareInfo[]>('/api/shares'),
+    listForResource: (spaceId: string, resourceType: string, resourcePath?: string | null) =>
+      apiFetch<ShareInfo[]>(
+        `/api/shares/for-resource?spaceId=${encodeURIComponent(spaceId)}&resourceType=${encodeURIComponent(resourceType)}${resourcePath ? `&resourcePath=${encodeURIComponent(resourcePath)}` : ''}`
+      ),
+    revoke: (token: string) =>
+      apiFetch<void>(`/api/shares/${token}`, { method: 'DELETE' }),
+  },
+  shared: {
+    resolve: (token: string) =>
+      apiFetch<ShareInfo>(`/api/shared/${token}`),
+    document: (token: string) =>
+      apiFetch<Document>(`/api/shared/${token}/document`),
+    tree: (token: string) =>
+      apiFetch<TreeNode[]>(`/api/shared/${token}/tree`),
   },
   locks: {
     status: (spaceId: string, slug: string) =>
