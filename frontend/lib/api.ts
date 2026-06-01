@@ -82,6 +82,12 @@ export const api = {
         body: JSON.stringify({ newName }),
       }),
   },
+  locks: {
+    status: (spaceId: string, slug: string) =>
+      apiFetch<{ locked: boolean; lockedBy: string | null }>(
+        `/api/spaces/${spaceId}/document-locks?slug=${encodeURIComponent(slug)}`
+      ),
+  },
   assets: {
     // Relative URL — routed through the Next.js proxy (app/api/spaces/.../assets/route.ts)
     // which adds the Bearer token server-side. Works for <img src> and direct fetch alike.

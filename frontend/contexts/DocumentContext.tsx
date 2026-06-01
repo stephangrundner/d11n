@@ -8,9 +8,13 @@ export interface DocumentState {
   isDirty: boolean;
   saving: boolean;
   reloadKey: number;
+  isEditing: boolean;
+  lockedBy: string | null;
   onSave: () => void;
   onOpenHistory: () => void;
   onOpenSaveDialog: () => void;
+  onEnterEdit: () => void;
+  onExitEdit: () => void;
 }
 
 const defaultState: DocumentState = {
@@ -20,9 +24,13 @@ const defaultState: DocumentState = {
   isDirty: false,
   saving: false,
   reloadKey: 0,
+  isEditing: false,
+  lockedBy: null,
   onSave: () => {},
   onOpenHistory: () => {},
   onOpenSaveDialog: () => {},
+  onEnterEdit: () => {},
+  onExitEdit: () => {},
 };
 
 // Read context — consumed by MenuBar

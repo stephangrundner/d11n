@@ -12,7 +12,6 @@ import InputBase from '@mui/material/InputBase';
 import MuiLink from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
 import NextLink from 'next/link';
-import Alert from '@mui/material/Alert';
 import ToggleButton from '@mui/material/ToggleButton';
 import Tooltip from '@mui/material/Tooltip';
 import GlobalStyles from '@mui/material/GlobalStyles';
@@ -31,6 +30,8 @@ import { ImageNode } from './ImageNode';
 import { HistoryPanel } from './HistoryPanel';
 import { SaveMessageDialog } from './SaveMessageDialog';
 import { useDocumentSetter } from '@/contexts/DocumentContext';
+import { useDocumentLock } from '@/hooks/useDocumentLock';
+import { useNotify } from '@/contexts/NotificationContext';
 
 interface Props {
   doc: Document;
@@ -50,13 +51,22 @@ export function DocumentEditor({ doc }: Props) {
   const [title, setTitle] = useState(doc.title ?? '');
   const [saving, setSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [saveCount, setSaveCount] = useState(0);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [lastCommitMessage, setLastCommitMessage] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
   const mountedRef = useRef(false);
   useEffect(() => { mountedRef.current = true; }, []);
+
+  const notify = useNotify();
+
+  const onLockLost = useCallback(() => {
+    setIsEditing(false);
+    notify('Edit lock was lost — you have been switched to view mode.', 'warning');
+  }, [notify]);
+
+  const { holding, lockState, acquire, release } = useDocumentLock(doc.spaceId, doc.slug, onLockLost);
 
   const { meta: initialMeta, body: initialBody } = useMemo(
     () => parseFrontMatter(doc.content ?? ''),
@@ -88,9 +98,35 @@ export function DocumentEditor({ doc }: Props) {
     immediatelyRender: true,
     extensions,
     content: initialBody,
+    editable: false,
     onUpdate: () => { if (mountedRef.current) setIsDirty(true); },
     editorProps,
   });
+
+  // Sync editor editability with isEditing state
+  useEffect(() => {
+    editor?.setEditable(isEditing);
+  }, [editor, isEditing]);
+
+  const handleEnterEdit = useCallback(async () => {
+    const success = await acquire();
+    if (success) {
+      setIsEditing(true);
+    } else {
+      notify(
+        lockState.lockedBy
+          ? `"${doc.title}" is currently being edited by ${lockState.lockedBy}.`
+          : 'Could not acquire edit lock. Please try again.',
+        'warning',
+      );
+    }
+  }, [acquire, lockState.lockedBy, doc.title, notify]);
+
+  const handleExitEdit = useCallback(() => {
+    setIsEditing(false);
+    setIsDirty(false);
+    release();
+  }, [release]);
 
   const handleSave = useCallback(async (commitMessage?: string) => {
     if (!editor || saving) return;
@@ -98,7 +134,6 @@ export function DocumentEditor({ doc }: Props) {
     const body = (editor.storage as any).markdown.getMarkdown() as string;
     const content = serializeFrontMatter(frontMetaRef.current, body);
     setSaving(true);
-    setSaveError(null);
     try {
       await api.documents.update(doc.spaceId, doc.slug, {
         title: title || doc.slug,
@@ -109,16 +144,18 @@ export function DocumentEditor({ doc }: Props) {
       setIsDirty(false);
       setSaveCount(n => n + 1);
       if (commitMessage) setLastCommitMessage(commitMessage);
+      notify('Document saved.', 'success');
     } catch {
-      setSaveError('Save failed. Check that the backend is running.');
+      notify('Save failed. Check that the backend is running.', 'error');
     } finally {
       setSaving(false);
     }
-  }, [editor, title, doc, saving]);
+  }, [editor, title, doc, saving, notify]);
 
-  // Keyboard shortcut
+  // Keyboard shortcut (only active in edit mode)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (!isEditing) return;
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         handleSave();
@@ -126,12 +163,11 @@ export function DocumentEditor({ doc }: Props) {
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [handleSave]);
+  }, [handleSave, isEditing]);
 
   const updateContext = useDocumentSetter();
 
   // Push editor state up into the layout-level context so MenuBar can read it.
-  // Runs whenever any relevant piece of state changes.
   useEffect(() => {
     updateContext({
       spaceId: doc.spaceId,
@@ -140,17 +176,21 @@ export function DocumentEditor({ doc }: Props) {
       isDirty,
       saving,
       reloadKey: saveCount,
+      isEditing,
+      lockedBy: lockState.locked && !holding ? lockState.lockedBy : null,
       onSave: () => handleSave(),
       onOpenHistory: () => setHistoryOpen(true),
       onOpenSaveDialog: () => setSaveDialogOpen(true),
+      onEnterEdit: handleEnterEdit,
+      onExitEdit: handleExitEdit,
     });
-  // handleSave is stable (useCallback), setHistoryOpen/setSaveDialogOpen are stable React setters
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [updateContext, doc.spaceId, doc.slug, title, isDirty, saving, saveCount, handleSave]);
+  }, [updateContext, doc.spaceId, doc.slug, title, isDirty, saving, saveCount,
+      isEditing, lockState, holding, handleSave, handleEnterEdit, handleExitEdit]);
 
   // Clear context when the document unmounts
   useEffect(() => {
-    return () => updateContext({ spaceId: null, slug: null, isDirty: false, saving: false });
+    return () => updateContext({ spaceId: null, slug: null, isDirty: false, saving: false, isEditing: false, lockedBy: null });
   }, [updateContext]);
 
   const fmt = (mark: string) => editor?.isActive(mark) ?? false;
@@ -167,8 +207,8 @@ export function DocumentEditor({ doc }: Props) {
         },
       }} />
 
-      {/* Bubble menu — appears on text selection */}
-      {editor && (
+      {/* Bubble menu — appears on text selection in edit mode */}
+      {editor && isEditing && (
         <BubbleMenu
           editor={editor}
           style={{
@@ -209,13 +249,13 @@ export function DocumentEditor({ doc }: Props) {
         </BubbleMenu>
       )}
 
-      {editor && <BlockHandle editor={editor} />}
-      {editor && <TableHandles editor={editor} />}
+      {editor && isEditing && <BlockHandle editor={editor} />}
+      {editor && isEditing && <TableHandles editor={editor} />}
 
       {/* Content — centered, white, full height */}
       <Box sx={{
         minHeight: '100vh',
-        bgcolor: '#fff',
+        bgcolor: 'background.default',
         pt: '80px',
         pb: 16,
       }}>
@@ -258,6 +298,7 @@ export function DocumentEditor({ doc }: Props) {
             onChange={e => { setTitle(e.target.value); setIsDirty(true); }}
             placeholder="Untitled"
             fullWidth
+            readOnly={!isEditing}
             sx={{
               mb: 3,
               '& input': {
@@ -268,15 +309,10 @@ export function DocumentEditor({ doc }: Props) {
                 lineHeight: 1.2,
                 color: 'text.primary',
                 fontFamily: 'inherit',
+                cursor: isEditing ? 'text' : 'default',
               },
             }}
           />
-
-          {saveError && (
-            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSaveError(null)}>
-              {saveError}
-            </Alert>
-          )}
 
           {/* Editor */}
           <Box sx={{
@@ -287,6 +323,7 @@ export function DocumentEditor({ doc }: Props) {
               fontSize: '1rem',
               lineHeight: 1.75,
               color: 'text.primary',
+              cursor: isEditing ? 'text' : 'default',
             },
             '& .d11n-editor > * + *': { mt: 0.75 },
             '& .d11n-editor h1': { fontSize: '1.75rem', fontWeight: 700, lineHeight: 1.3, mt: 3, mb: 1 },
@@ -297,14 +334,14 @@ export function DocumentEditor({ doc }: Props) {
             '& .d11n-editor li + li': { mt: 0.25 },
             '& .d11n-editor code': {
               fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-              bgcolor: '#f3f3f1',
+              bgcolor: (t) => t.palette.mode === 'dark' ? 'rgba(255,255,255,0.07)' : '#f3f3f1',
               px: '4px',
               py: '1px',
               borderRadius: '3px',
               fontSize: '0.875em',
             },
             '& .d11n-editor pre': {
-              bgcolor: '#f3f3f1',
+              bgcolor: (t) => t.palette.mode === 'dark' ? 'rgba(255,255,255,0.07)' : '#f3f3f1',
               p: 2,
               borderRadius: 1,
               overflow: 'auto',

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.util.List;
@@ -25,6 +26,7 @@ import java.util.List;
 public class DocumentController {
 
     private final DocumentService documentService;
+    private final DocumentLockService lockService;
 
     @GetMapping
     public List<Document> listDocuments(@PathVariable String spaceId) throws IOException, GitAPIException {
@@ -65,7 +67,11 @@ public class DocumentController {
     public Document updateDocument(@PathVariable String spaceId, @PathVariable String slug,
                                    @RequestBody DocumentRequest request,
                                    @AuthenticationPrincipal UserDetails principal) throws IOException, GitAPIException {
-        return documentService.updateDocument(spaceId, stripLeadingSlash(slug), request, principal.getUsername());
+        String cleanSlug = stripLeadingSlash(slug);
+        if (!lockService.isHeldBy(spaceId, cleanSlug, principal.getUsername())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "You do not hold the edit lock for this document");
+        }
+        return documentService.updateDocument(spaceId, cleanSlug, request, principal.getUsername());
     }
 
     @DeleteMapping("/{*slug}")
