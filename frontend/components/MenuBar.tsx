@@ -7,20 +7,17 @@ import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
-import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
+import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
+import NextLink from 'next/link';
 import { useDocumentContext } from '@/contexts/DocumentContext';
-// useDocumentContext reads from DocumentStateContext, which is provided by
-// DocumentContextProvider in the layout — above both MenuBar and page content.
 import { getClientToken, getUsernameFromToken } from '@/lib/auth';
 import { AccountDialog } from './AccountDialog';
-import { SpacePickerDialog } from './SpacePickerDialog';
 
 export function MenuBar() {
   const doc = useDocumentContext();
   const hasDoc = !!doc.spaceId && !!doc.slug;
 
-  const [spacePickerOpen, setSpacePickerOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
 
@@ -54,14 +51,15 @@ export function MenuBar() {
           boxShadow: '0 2px 16px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.05)',
         }}
       >
-        {/* Space picker */}
-        <Tooltip title="Open / switch document" placement="bottom" arrow>
+        {/* Home */}
+        <Tooltip title="Home" placement="bottom" arrow>
           <IconButton
             size="small"
-            onClick={() => setSpacePickerOpen(true)}
+            component={NextLink}
+            href="/"
             sx={{ color: 'primary.main', bgcolor: 'primary.50', '&:hover': { bgcolor: 'primary.100' } }}
           >
-            <FolderOutlinedIcon sx={{ fontSize: 18 }} />
+            <HomeOutlinedIcon sx={{ fontSize: 18 }} />
           </IconButton>
         </Tooltip>
 
@@ -126,7 +124,6 @@ export function MenuBar() {
         </Tooltip>
       </Box>
 
-      <SpacePickerDialog open={spacePickerOpen} onClose={() => setSpacePickerOpen(false)} />
       <AccountDialog open={accountOpen} onClose={() => setAccountOpen(false)} username={username} />
     </>
   );

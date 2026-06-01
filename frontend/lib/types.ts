@@ -1,6 +1,7 @@
 export interface Space {
   id: string;
   name: string;
+  documentCount?: number;
 }
 
 export interface Document {

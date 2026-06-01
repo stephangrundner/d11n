@@ -3,6 +3,7 @@ package io.grundner.d11n.space;
 import lombok.RequiredArgsConstructor;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,8 +26,20 @@ public class SpaceController {
     private final SpaceSettingsService settingsService;
 
     @GetMapping
-    public List<Space> listSpaces() throws IOException {
-        return spaceService.listSpaces();
+    public List<SpaceSummary> listSpaces() throws IOException {
+        return spaceService.listSpaces().stream()
+                .map(s -> {
+                    int count = 0;
+                    try { count = spaceService.countDocuments(s.getId()); } catch (IOException ignored) {}
+                    return new SpaceSummary(s.getId(), s.getName(), count);
+                })
+                .toList();
+    }
+
+    @DeleteMapping("/{spaceId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteSpace(@PathVariable String spaceId) throws IOException {
+        spaceService.deleteSpace(spaceId);
     }
 
     @PostMapping

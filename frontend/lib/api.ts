@@ -35,6 +35,8 @@ export const api = {
     get: (id: string) => apiFetch<Space>(`/api/spaces/${id}`),
     create: (id: string) =>
       apiFetch<Space>('/api/spaces', { method: 'POST', body: JSON.stringify({ id }) }),
+    delete: (id: string) =>
+      apiFetch<void>(`/api/spaces/${id}`, { method: 'DELETE' }),
     settings: {
       get: (spaceId: string) => apiFetch<SpaceSettings>(`/api/spaces/${spaceId}/settings`),
       update: (spaceId: string, data: SpaceSettings) =>

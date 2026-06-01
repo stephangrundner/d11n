@@ -57,6 +57,29 @@ public class SpaceService {
         return new Space(id, id, repoPath);
     }
 
+    public int countDocuments(String spaceId) throws IOException {
+        Path repoPath = Path.of(properties.getSpacesBaseDir()).resolve(spaceId);
+        if (!Files.isDirectory(repoPath)) return 0;
+        try (var stream = Files.walk(repoPath)) {
+            return (int) stream
+                    .filter(p -> !p.startsWith(repoPath.resolve(".git")))
+                    .filter(p -> p.toString().endsWith(".md"))
+                    .count();
+        }
+    }
+
+    public void deleteSpace(String id) throws IOException {
+        Path repoPath = Path.of(properties.getSpacesBaseDir()).resolve(id);
+        if (!Files.exists(repoPath)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Space not found: " + id);
+        }
+        try (var stream = Files.walk(repoPath)) {
+            stream.sorted(Comparator.reverseOrder()).forEach(p -> {
+                try { Files.delete(p); } catch (IOException e) { throw new UncheckedIOException(e); }
+            });
+        }
+    }
+
     public GitRepository openRepository(String spaceId) throws IOException {
         return findById(spaceId)
                 .map(s -> {
