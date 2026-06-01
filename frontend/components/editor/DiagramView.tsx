@@ -1,8 +1,8 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { NodeViewWrapper } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
-import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
+import { TransformWrapper, TransformComponent, type ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch';
 import { useParams } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Dialog from '@mui/material/Dialog';
@@ -23,7 +23,11 @@ export function DiagramView({ node, updateAttributes, selected }: NodeViewProps)
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [lightboxImgVisible, setLightboxImgVisible] = useState(false);
   const blobUrlRef = useRef<string | null>(null);
+  const lightboxTransformRef = useRef<ReactZoomPanPinchContentRef>(null);
+  const lightboxImgRef = useRef<HTMLImageElement>(null);
+  const lightboxInnerRef = useRef<HTMLDivElement>(null);
   const params = useParams();
   const spaceId = (params?.spaceId as string) ?? '';
   const { isEditing } = useDocumentContext();
@@ -59,6 +63,22 @@ export function DiagramView({ node, updateAttributes, selected }: NodeViewProps)
     ? proxySrc.replace(`/api/spaces/${spaceId}/assets/`, '')
     : '';
 
+  const fitToLightbox = useCallback(() => {
+    const img = lightboxImgRef.current;
+    const inner = lightboxInnerRef.current;
+    const tf = lightboxTransformRef.current;
+    if (!img?.naturalWidth || !inner || !tf) return;
+    const scaleX = inner.clientWidth / img.naturalWidth;
+    const scaleY = inner.clientHeight / img.naturalHeight;
+    tf.centerView(Math.min(scaleX, scaleY), 0);
+    setLightboxImgVisible(true);
+  }, []);
+
+  const handleCloseLightbox = () => {
+    setLightboxOpen(false);
+    setLightboxImgVisible(false);
+  };
+
   const handleClick = () => {
     if (isEditing) setEditDialogOpen(true);
     else if (previewUrl) setLightboxOpen(true);
@@ -86,7 +106,7 @@ export function DiagramView({ node, updateAttributes, selected }: NodeViewProps)
           <img
             src={previewUrl}
             alt={alt || 'diagram'}
-            style={{ display: 'block', width: '100%', height: 'auto', backgroundColor: '#ffffff' }}
+            style={{ display: 'block', width: '100%', height: 'auto', backgroundColor: '#ffffff', padding: '16px', boxSizing: 'border-box' }}
             draggable={false}
           />
         ) : (
@@ -106,14 +126,14 @@ export function DiagramView({ node, updateAttributes, selected }: NodeViewProps)
       {/* Lightbox with zoom/pan — view mode only */}
       <Dialog
         open={lightboxOpen}
-        onClose={() => setLightboxOpen(false)}
+        onClose={handleCloseLightbox}
         fullScreen
         slotProps={{ paper: { sx: { bgcolor: '#ffffff' } } }}
       >
         {/* Close */}
         <IconButton
           size="small"
-          onClick={() => setLightboxOpen(false)}
+          onClick={handleCloseLightbox}
           sx={{
             position: 'absolute', top: 12, right: 12, zIndex: 10,
             bgcolor: 'rgba(0,0,0,0.06)', '&:hover': { bgcolor: 'rgba(0,0,0,0.12)' },
@@ -124,71 +144,73 @@ export function DiagramView({ node, updateAttributes, selected }: NodeViewProps)
 
         {/* Padded area — position:relative so controls can anchor to it */}
         <Box sx={{ height: '100%', p: 6, boxSizing: 'border-box', position: 'relative' }}>
-          <TransformWrapper
-            initialScale={1}
-            minScale={0.1}
-            maxScale={10}
-            centerOnInit
-            limitToBounds={false}
-          >
-            {({ zoomIn, zoomOut, resetTransform }) => (
-              <>
-                <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={previewUrl ?? ''}
-                    alt={alt || 'diagram'}
-                    style={{
-                      display: 'block',
-                      maxWidth: '100%',
-                      maxHeight: '100%',
-                      width: 'auto',
-                      height: 'auto',
-                      backgroundColor: '#ffffff',
-                      userSelect: 'none',
-                    }}
-                    draggable={false}
-                  />
-                </TransformComponent>
+          {/* Inner ref excludes outer padding — used to calculate fit scale */}
+          <div ref={lightboxInnerRef} style={{ width: '100%', height: '100%' }}>
+            <TransformWrapper
+              ref={lightboxTransformRef}
+              minScale={0.1}
+              maxScale={10}
+              limitToBounds={false}
+              onInit={fitToLightbox}
+            >
+              {({ zoomIn, zoomOut }) => (
+                <>
+                  <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      ref={lightboxImgRef}
+                      src={previewUrl ?? ''}
+                      alt={alt || 'diagram'}
+                      style={{
+                        display: 'block',
+                        backgroundColor: '#ffffff',
+                        userSelect: 'none',
+                        visibility: lightboxImgVisible ? 'visible' : 'hidden',
+                      }}
+                      draggable={false}
+                      onLoad={fitToLightbox}
+                    />
+                  </TransformComponent>
 
-                {/* Zoom controls — floating pill, centered at bottom of padded area */}
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    bottom: 0,
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    bgcolor: 'rgba(255,255,255,0.92)',
-                    backdropFilter: 'blur(10px)',
-                    borderRadius: '10px',
-                    border: '1px solid rgba(0,0,0,0.09)',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
-                    px: 0.5,
-                    py: 0.25,
-                    gap: 0.25,
-                  }}
-                >
-                  <Tooltip title="Zoom out" placement="top" arrow>
-                    <IconButton size="small" onClick={() => zoomOut()}>
-                      <ZoomOutIcon sx={{ fontSize: 18 }} />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Fit to screen" placement="top" arrow>
-                    <IconButton size="small" onClick={() => resetTransform()}>
-                      <FitScreenIcon sx={{ fontSize: 18 }} />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Zoom in" placement="top" arrow>
-                    <IconButton size="small" onClick={() => zoomIn()}>
-                      <ZoomInIcon sx={{ fontSize: 18 }} />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-              </>
-            )}
-          </TransformWrapper>
+                  {/* Zoom controls — floating pill, centered at bottom of padded area */}
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      bgcolor: 'rgba(255,255,255,0.92)',
+                      backdropFilter: 'blur(10px)',
+                      borderRadius: '10px',
+                      border: '1px solid rgba(0,0,0,0.09)',
+                      boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
+                      px: 0.5,
+                      py: 0.25,
+                      gap: 0.25,
+                    }}
+                  >
+                    <Tooltip title="Zoom out" placement="top" arrow>
+                      <IconButton size="small" onClick={() => zoomOut()}>
+                        <ZoomOutIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Fit to screen" placement="top" arrow>
+                      <IconButton size="small" onClick={fitToLightbox}>
+                        <FitScreenIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Zoom in" placement="top" arrow>
+                      <IconButton size="small" onClick={() => zoomIn()}>
+                        <ZoomInIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </>
+              )}
+            </TransformWrapper>
+          </div>
         </Box>
       </Dialog>
 
