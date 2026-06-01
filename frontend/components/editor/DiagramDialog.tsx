@@ -22,7 +22,9 @@ export function DiagramDialog({ spaceId, filename, src, onSave, onClose }: Props
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [iframeLoaded, setIframeLoaded] = useState(false);
-  const targetFilename = useRef(filename || `diagram-${Date.now()}.drawio.svg`);
+  // Always write to a new unique file so the original is preserved for discard scenarios.
+  // Reading (on init) still uses the original filename passed via prop.
+  const targetFilename = useRef(`diagram-${Date.now()}.drawio.svg`);
 
   const onSaveRef = useRef(onSave);
   const onCloseRef = useRef(onClose);
@@ -44,9 +46,9 @@ export function DiagramDialog({ spaceId, filename, src, onSave, onClose }: Props
       if (msg.event === 'init') {
         setLoading(false);
         let xml = '<mxfile><diagram></diagram></mxfile>';
-        if (src) {
+        if (src && filename) {
           try {
-            const svgContent = await api.assets.fetchContent(spaceId, targetFilename.current);
+            const svgContent = await api.assets.fetchContent(spaceId, filename);
             const extracted = extractXmlFromDrawioSvg(svgContent);
             if (extracted) xml = extracted;
           } catch { /* new diagram */ }

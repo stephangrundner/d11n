@@ -31,6 +31,9 @@ export function createAppTheme(mode: 'light' | 'dark') {
       MuiListItemIcon: {
         styleOverrides: { root: { minWidth: 32 } },
       },
+      MuiModal: {
+        defaultProps: { disableScrollLock: true },
+      },
     },
   });
 }

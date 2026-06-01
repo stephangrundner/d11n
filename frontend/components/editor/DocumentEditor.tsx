@@ -8,6 +8,12 @@ import { TableKit } from '@tiptap/extension-table';
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import Box from '@mui/material/Box';
 import Breadcrumbs from '@mui/material/Breadcrumbs';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
 import InputBase from '@mui/material/InputBase';
 import MuiLink from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
@@ -37,6 +43,12 @@ interface Props {
   doc: Document;
 }
 
+interface Draft {
+  title: string;
+  content: object;
+  savedAt: string;
+}
+
 const bubbleBtnSx = {
   border: 'none !important',
   borderRadius: '4px !important',
@@ -56,14 +68,28 @@ export function DocumentEditor({ doc }: Props) {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [lastCommitMessage, setLastCommitMessage] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+  const [pendingDraft, setPendingDraft] = useState<Draft | null>(null);
+  const [changeCount, setChangeCount] = useState(0);
   const mountedRef = useRef(false);
   useEffect(() => { mountedRef.current = true; }, []);
 
+  // Track the last persisted state so we can restore it on discard
+  const lastSavedContentRef = useRef<object | null>(null);
+  const lastSavedTitleRef = useRef(doc.title ?? '');
+
   const notify = useNotify();
 
+  const editingStorageKey = `d11n_editing`;
+  const editingStorageValue = `${doc.spaceId}:${doc.slug}`;
+  const draftKey = `d11n_draft:${doc.spaceId}:${doc.slug}`;
+
   const onLockLost = useCallback(() => {
+    sessionStorage.removeItem(editingStorageKey);
+    localStorage.removeItem(draftKey);
     setIsEditing(false);
     notify('Edit lock was lost — you have been switched to view mode.', 'warning');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notify]);
 
   const { holding, lockState, acquire, release } = useDocumentLock(doc.spaceId, doc.slug, onLockLost);
@@ -99,9 +125,15 @@ export function DocumentEditor({ doc }: Props) {
     extensions,
     content: initialBody,
     editable: false,
-    onUpdate: () => { if (mountedRef.current) setIsDirty(true); },
+    onUpdate: () => { if (mountedRef.current) { setIsDirty(true); setChangeCount(n => n + 1); } },
     editorProps,
   });
+
+  // Capture initial saved state once the editor is ready
+  useEffect(() => {
+    if (!editor || lastSavedContentRef.current !== null) return;
+    lastSavedContentRef.current = editor.getJSON();
+  }, [editor]);
 
   // Sync editor editability with isEditing state
   useEffect(() => {
@@ -111,7 +143,13 @@ export function DocumentEditor({ doc }: Props) {
   const handleEnterEdit = useCallback(async () => {
     const success = await acquire();
     if (success) {
+      sessionStorage.setItem(editingStorageKey, editingStorageValue);
       setIsEditing(true);
+      const stored = localStorage.getItem(draftKey);
+      if (stored) {
+        try { setPendingDraft(JSON.parse(stored)); }
+        catch { localStorage.removeItem(draftKey); }
+      }
     } else {
       notify(
         lockState.lockedBy
@@ -120,13 +158,70 @@ export function DocumentEditor({ doc }: Props) {
         'warning',
       );
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [acquire, lockState.lockedBy, doc.title, notify]);
 
   const handleExitEdit = useCallback(() => {
-    setIsEditing(false);
+    if (isDirty) {
+      setConfirmDiscardOpen(true);
+    } else {
+      sessionStorage.removeItem(editingStorageKey);
+      setIsEditing(false);
+      release();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDirty, release]);
+
+  const handleConfirmDiscard = useCallback(() => {
+    if (editor && lastSavedContentRef.current) {
+      editor.commands.setContent(lastSavedContentRef.current);
+    }
+    setTitle(lastSavedTitleRef.current);
     setIsDirty(false);
+    setIsEditing(false);
+    setConfirmDiscardOpen(false);
+    sessionStorage.removeItem(editingStorageKey);
+    localStorage.removeItem(draftKey);
     release();
-  }, [release]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, release]);
+
+  const handleRestoreDraft = useCallback(() => {
+    if (!pendingDraft || !editor) return;
+    editor.commands.setContent(pendingDraft.content);
+    setTitle(pendingDraft.title);
+    setIsDirty(true);
+    setPendingDraft(null);
+  }, [pendingDraft, editor]);
+
+  const handleDiscardDraft = useCallback(() => {
+    localStorage.removeItem(draftKey);
+    setPendingDraft(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Debounced auto-save to localStorage — fires 2s after last content or title change
+  useEffect(() => {
+    if (!isEditing || !editor) return;
+    const timer = setTimeout(() => {
+      if (!isDirty) return;
+      localStorage.setItem(draftKey, JSON.stringify({
+        title,
+        content: editor.getJSON(),
+        savedAt: new Date().toISOString(),
+      } satisfies Draft));
+    }, 2000);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [changeCount, title, isEditing]);
+
+  // Re-enter edit mode automatically if this document was being edited before a page reload
+  useEffect(() => {
+    if (sessionStorage.getItem(editingStorageKey) === editingStorageValue) {
+      handleEnterEdit();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally runs once on mount
 
   const handleSave = useCallback(async (commitMessage?: string) => {
     if (!editor || saving) return;
@@ -144,6 +239,9 @@ export function DocumentEditor({ doc }: Props) {
       setIsDirty(false);
       setSaveCount(n => n + 1);
       if (commitMessage) setLastCommitMessage(commitMessage);
+      lastSavedContentRef.current = editor.getJSON();
+      lastSavedTitleRef.current = title || doc.slug;
+      localStorage.removeItem(draftKey);
       notify('Document saved.', 'success');
     } catch {
       notify('Save failed. Check that the backend is running.', 'error');
@@ -406,6 +504,46 @@ export function DocumentEditor({ doc }: Props) {
         saving={saving}
         defaultMessage={lastCommitMessage || `Update: ${title || doc.slug}`}
       />
+
+      {/* Draft restore dialog */}
+      <Dialog open={!!pendingDraft} onClose={handleDiscardDraft} maxWidth="xs" fullWidth>
+        <DialogTitle>Unsaved draft found</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {pendingDraft && (() => {
+              const d = new Date(pendingDraft.savedAt);
+              const isToday = d.toDateString() === new Date().toDateString();
+              const time = isToday
+                ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                : d.toLocaleDateString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+              return `You have unsaved changes from ${time}. Would you like to restore them?`;
+            })()}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDiscardDraft}>Start fresh</Button>
+          <Button onClick={handleRestoreDraft} variant="contained" disableElevation>
+            Restore draft
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={confirmDiscardOpen} onClose={() => setConfirmDiscardOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Discard unsaved changes?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Your changes have not been saved. If you continue, they will be lost and the last saved version will be restored.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDiscardOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmDiscard} color="error" variant="contained" disableElevation>
+            Discard changes
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }
