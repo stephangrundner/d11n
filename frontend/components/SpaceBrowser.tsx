@@ -3,9 +3,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Breadcrumbs from '@mui/material/Breadcrumbs';
-import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
-import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import InputBase from '@mui/material/InputBase';
 import Link from '@mui/material/Link';
@@ -22,10 +19,12 @@ import CloseIcon from '@mui/icons-material/Close';
 import NextLink from 'next/link';
 import { api } from '@/lib/api';
 import type { TreeNode } from '@/lib/types';
+import { ResourceList, ResourceRow } from './ResourceList';
+import type { RowAction } from './ResourceList';
 
 interface Props {
   spaceId: string;
-  path: string; // "" for root, "folder", "folder/sub" for nested
+  path: string;
 }
 
 function getNodesAtPath(nodes: TreeNode[], path: string): TreeNode[] | null {
@@ -45,8 +44,7 @@ function buildBreadcrumbs(spaceId: string, path: string) {
     { label: spaceId, href: `/spaces/${spaceId}` },
   ];
   if (!path) return crumbs;
-  const parts = path.split('/');
-  parts.forEach((part, i) => {
+  path.split('/').forEach((part, i, parts) => {
     crumbs.push({ label: part, href: `/spaces/${spaceId}/${parts.slice(0, i + 1).join('/')}` });
   });
   return crumbs;
@@ -78,21 +76,9 @@ export function SpaceBrowser({ spaceId, path }: Props) {
   const submitCreateFolder = async () => {
     const name = newFolderName.trim();
     if (!name) { setCreatingFolder(false); return; }
-    const folderPath = path ? `${path}/${name}` : name;
-    await api.folders.create(spaceId, folderPath);
+    await api.folders.create(spaceId, path ? `${path}/${name}` : name);
     setCreatingFolder(false);
     setNewFolderName('');
-    load();
-  };
-
-  const handleDeleteFolder = async (folderPath: string, folderName: string) => {
-    if (!confirm(`Delete folder "${folderName}" and all its contents?`)) return;
-    await api.folders.delete(spaceId, folderPath);
-    load();
-  };
-
-  const handleRenameFolder = async (folderPath: string, newName: string) => {
-    await api.folders.rename(spaceId, folderPath, newName);
     load();
   };
 
@@ -112,175 +98,151 @@ export function SpaceBrowser({ spaceId, path }: Props) {
     }
   };
 
-  const handleDeleteDoc = async (docSlug: string, docTitle: string) => {
-    if (!confirm(`Delete document "${docTitle}"?`)) return;
-    await api.documents.delete(spaceId, docSlug);
-    load();
-  };
+  const breadcrumbNode = (
+    <Breadcrumbs sx={{ mb: 3 }}>
+      {crumbs.map((crumb, i) => {
+        const isLast = i === crumbs.length - 1;
+        return isLast && i > 0 ? (
+          <Typography key={crumb.href} variant="body2" color="text.primary" sx={{ fontWeight: 600 }}>
+            {crumb.label}
+          </Typography>
+        ) : (
+          <Link key={crumb.href} component={NextLink} href={crumb.href} underline="hover" color="text.secondary" variant="body2">
+            {crumb.label}
+          </Link>
+        );
+      })}
+    </Breadcrumbs>
+  );
 
-  return (
-    <Box sx={{ maxWidth: 720, mx: 'auto', px: { xs: 3, sm: 5, md: 8 }, pt: '80px', pb: 10 }}>
-
-      {/* Breadcrumb */}
-      <Breadcrumbs sx={{ mb: 3 }}>
-        {crumbs.map((crumb, i) => {
-          const isCurrentFolder = i === crumbs.length - 1 && i > 0;
-          return isCurrentFolder ? (
-            <Typography key={crumb.href} variant="body2" color="text.primary" sx={{ fontWeight: 600 }}>
-              {crumb.label}
-            </Typography>
-          ) : (
-            <Link
-              key={crumb.href}
-              component={NextLink}
-              href={crumb.href}
-              underline="hover"
-              color="text.secondary"
-              variant="body2"
-            >
-              {crumb.label}
-            </Link>
-          );
-        })}
-      </Breadcrumbs>
-
-      {/* Actions */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-        <Button
-          size="small"
-          startIcon={<NoteAddOutlinedIcon />}
-          onClick={() => { setCreatingDoc(true); setNewDocSlug(''); setNewDocTitle(''); setDocError(null); }}
-          sx={{ color: 'text.secondary', textTransform: 'none' }}
-        >
-          New document
-        </Button>
-        <Button
-          size="small"
-          startIcon={<CreateNewFolderOutlinedIcon />}
-          onClick={() => { setCreatingFolder(true); setNewFolderName(''); }}
-          sx={{ color: 'text.secondary', textTransform: 'none' }}
-        >
-          New folder
-        </Button>
-      </Box>
-
-      <Divider sx={{ mb: 0.5 }} />
-
-      {loading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-          <CircularProgress size={24} />
-        </Box>
-      )}
-
-      {!loading && nodes === null && (
+  // Folder not found — still render the breadcrumb but no list
+  if (!loading && nodes === null) {
+    return (
+      <ResourceList loading={false} header={breadcrumbNode}>
         <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
           Folder not found.
         </Typography>
-      )}
+      </ResourceList>
+    );
+  }
 
-      {!loading && nodes !== null && (
-        <Box>
-          {nodes.length === 0 && !creatingFolder && (
-            <Typography variant="body2" color="text.disabled" sx={{ py: 4, textAlign: 'center' }}>
-              This folder is empty.
-            </Typography>
-          )}
-
-          {nodes.map(node =>
-            node.type === 'folder' ? (
-              <FolderRow
-                key={node.path}
-                node={node}
-                spaceId={spaceId}
-                onDelete={() => handleDeleteFolder(node.path, node.name)}
-                onRename={(newName) => handleRenameFolder(node.path, newName)}
-              />
-            ) : (
-              <DocumentRow
-                key={node.path}
-                node={node}
-                spaceId={spaceId}
-                onDelete={() => handleDeleteDoc(node.path, node.title || node.name)}
-              />
-            )
-          )}
-
-          {/* Inline new-document input */}
-          {creatingDoc && (
-            <Box sx={{
-              display: 'flex', alignItems: 'center', gap: 1,
-              px: 1.5, py: 1, borderRadius: 1,
-              border: '1px solid', borderColor: 'primary.main',
-              mt: 0.5, flexWrap: 'wrap',
-            }}>
-              <InsertDriveFileOutlinedIcon sx={{ fontSize: 18, color: 'primary.main', flexShrink: 0 }} />
-              <InputBase
-                autoFocus
-                value={newDocSlug}
-                onChange={e => { setNewDocSlug(e.target.value); setDocError(null); }}
-                onKeyDown={e => { if (e.key === 'Enter') submitCreateDoc(); if (e.key === 'Escape') setCreatingDoc(false); }}
-                sx={{ flex: '1 1 120px', fontSize: '0.875rem', '& input': { p: 0 } }}
-                placeholder="slug (e.g. my-page)"
-                error={!!docError}
-              />
-              <InputBase
-                value={newDocTitle}
-                onChange={e => setNewDocTitle(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') submitCreateDoc(); if (e.key === 'Escape') setCreatingDoc(false); }}
-                sx={{ flex: '2 1 160px', fontSize: '0.875rem', color: 'text.secondary', '& input': { p: 0 } }}
-                placeholder="Title (optional)"
-              />
-              {docError && <Typography variant="caption" color="error" sx={{ width: '100%', pl: 3.5 }}>{docError}</Typography>}
-              <IconButton size="small" onClick={submitCreateDoc}><CheckIcon sx={{ fontSize: 16 }} /></IconButton>
-              <IconButton size="small" onClick={() => { setCreatingDoc(false); setDocError(null); }}>
-                <CloseIcon sx={{ fontSize: 16 }} />
-              </IconButton>
-            </Box>
-          )}
-
-          {/* Inline new-folder input */}
-          {creatingFolder && (
-            <Box sx={{
-              display: 'flex', alignItems: 'center', gap: 1,
-              px: 1.5, py: 1, borderRadius: 1,
-              border: '1px solid', borderColor: 'primary.main',
-              mt: 0.5,
-            }}>
-              <FolderOutlinedIcon sx={{ fontSize: 18, color: 'primary.main', flexShrink: 0 }} />
-              <InputBase
-                autoFocus
-                value={newFolderName}
-                onChange={e => setNewFolderName(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') submitCreateFolder();
-                  if (e.key === 'Escape') { setCreatingFolder(false); setNewFolderName(''); }
-                }}
-                sx={{ flex: 1, fontSize: '0.875rem', '& input': { p: 0 } }}
-                placeholder="Folder name"
-              />
-              <IconButton size="small" onClick={submitCreateFolder}><CheckIcon sx={{ fontSize: 16 }} /></IconButton>
-              <IconButton size="small" onClick={() => { setCreatingFolder(false); setNewFolderName(''); }}>
-                <CloseIcon sx={{ fontSize: 16 }} />
-              </IconButton>
-            </Box>
-          )}
+  const footer = (
+    <>
+      {creatingDoc && (
+        <Box sx={{
+          display: 'flex', alignItems: 'center', gap: 1,
+          px: 1.5, py: 1, borderRadius: 1,
+          border: '1px solid', borderColor: 'primary.main',
+          mt: 0.5, flexWrap: 'wrap',
+        }}>
+          <InsertDriveFileOutlinedIcon sx={{ fontSize: 18, color: 'primary.main', flexShrink: 0 }} />
+          <InputBase
+            autoFocus
+            value={newDocSlug}
+            onChange={e => { setNewDocSlug(e.target.value); setDocError(null); }}
+            onKeyDown={e => { if (e.key === 'Enter') submitCreateDoc(); if (e.key === 'Escape') setCreatingDoc(false); }}
+            sx={{ flex: '1 1 120px', fontSize: '0.875rem', '& input': { p: 0 } }}
+            placeholder="slug (e.g. my-page)"
+          />
+          <InputBase
+            value={newDocTitle}
+            onChange={e => setNewDocTitle(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') submitCreateDoc(); if (e.key === 'Escape') setCreatingDoc(false); }}
+            sx={{ flex: '2 1 160px', fontSize: '0.875rem', color: 'text.secondary', '& input': { p: 0 } }}
+            placeholder="Title (optional)"
+          />
+          {docError && <Typography variant="caption" color="error" sx={{ width: '100%', pl: 3.5 }}>{docError}</Typography>}
+          <IconButton size="small" onClick={submitCreateDoc}><CheckIcon sx={{ fontSize: 16 }} /></IconButton>
+          <IconButton size="small" onClick={() => { setCreatingDoc(false); setDocError(null); }}>
+            <CloseIcon sx={{ fontSize: 16 }} />
+          </IconButton>
         </Box>
       )}
-    </Box>
+      {creatingFolder && (
+        <Box sx={{
+          display: 'flex', alignItems: 'center', gap: 1,
+          px: 1.5, py: 1, borderRadius: 1,
+          border: '1px solid', borderColor: 'primary.main',
+          mt: 0.5,
+        }}>
+          <FolderOutlinedIcon sx={{ fontSize: 18, color: 'primary.main', flexShrink: 0 }} />
+          <InputBase
+            autoFocus
+            value={newFolderName}
+            onChange={e => setNewFolderName(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') submitCreateFolder();
+              if (e.key === 'Escape') { setCreatingFolder(false); setNewFolderName(''); }
+            }}
+            sx={{ flex: 1, fontSize: '0.875rem', '& input': { p: 0 } }}
+            placeholder="Folder name"
+          />
+          <IconButton size="small" onClick={submitCreateFolder}><CheckIcon sx={{ fontSize: 16 }} /></IconButton>
+          <IconButton size="small" onClick={() => { setCreatingFolder(false); setNewFolderName(''); }}>
+            <CloseIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+        </Box>
+      )}
+    </>
+  );
+
+  return (
+    <ResourceList
+      loading={loading}
+      header={breadcrumbNode}
+      headerActions={[
+        {
+          label: 'New document',
+          icon: <NoteAddOutlinedIcon />,
+          onClick: () => { setCreatingDoc(true); setNewDocSlug(''); setNewDocTitle(''); setDocError(null); },
+        },
+        {
+          label: 'New folder',
+          icon: <CreateNewFolderOutlinedIcon />,
+          onClick: () => { setCreatingFolder(true); setNewFolderName(''); },
+        },
+      ]}
+      emptyMessage="This folder is empty."
+      footer={footer}
+    >
+      {(nodes ?? []).map(node =>
+        node.type === 'folder' ? (
+          <FolderRow
+            key={node.path}
+            node={node}
+            spaceId={spaceId}
+            onDelete={async () => {
+              if (!confirm(`Delete folder "${node.name}" and all its contents?`)) return;
+              await api.folders.delete(spaceId, node.path);
+              load();
+            }}
+            onRename={async (newName) => { await api.folders.rename(spaceId, node.path, newName); load(); }}
+          />
+        ) : (
+          <DocumentRow
+            key={node.path}
+            node={node}
+            spaceId={spaceId}
+            onDelete={async () => {
+              if (!confirm(`Delete document "${node.title || node.name}"?`)) return;
+              await api.documents.delete(spaceId, node.path);
+              load();
+            }}
+          />
+        )
+      )}
+    </ResourceList>
   );
 }
 
 // ---------------------------------------------------------------------------
 
-interface FolderRowProps {
+function FolderRow({ node, spaceId, onDelete, onRename }: {
   node: TreeNode;
   spaceId: string;
   onDelete: () => void;
   onRename: (newName: string) => void;
-}
-
-function FolderRow({ node, spaceId, onDelete, onRename }: FolderRowProps) {
-  const [hovered, setHovered] = useState(false);
+}) {
   const [renaming, setRenaming] = useState(false);
   const [newName, setNewName] = useState(node.name);
 
@@ -291,21 +253,24 @@ function FolderRow({ node, spaceId, onDelete, onRename }: FolderRowProps) {
     setRenaming(false);
   };
 
-  return (
-    <Box
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      sx={{
-        display: 'flex', alignItems: 'center', gap: 1.5,
-        px: 1.5, py: 1,
-        borderRadius: 1,
-        cursor: renaming ? 'default' : 'pointer',
-        '&:hover': { bgcolor: 'action.hover' },
-        '&:not(:last-child)': { borderBottom: '1px solid', borderColor: 'divider' },
-      }}
-    >
-      <FolderOutlinedIcon sx={{ fontSize: 20, color: 'primary.main', flexShrink: 0 }} />
+  const rowActions: RowAction[] = [
+    {
+      tooltip: 'Rename',
+      icon: <DriveFileRenameOutlineIcon sx={{ fontSize: 16 }} />,
+      onClick: (e) => { e.stopPropagation(); setRenaming(true); },
+    },
+    {
+      tooltip: 'Delete',
+      icon: <DeleteIcon sx={{ fontSize: 16 }} />,
+      onClick: (e) => { e.stopPropagation(); onDelete(); },
+    },
+  ];
 
+  return (
+    <ResourceRow
+      icon={<FolderOutlinedIcon sx={{ fontSize: 20, color: 'primary.main', flexShrink: 0 }} />}
+      actions={renaming ? [] : rowActions}
+    >
       {renaming ? (
         <>
           <InputBase
@@ -319,79 +284,48 @@ function FolderRow({ node, spaceId, onDelete, onRename }: FolderRowProps) {
             onClick={e => e.stopPropagation()}
             sx={{ flex: 1, fontSize: '0.875rem', '& input': { p: 0 } }}
           />
-          <IconButton size="small" onClick={submitRename}><CheckIcon sx={{ fontSize: 16 }} /></IconButton>
-          <IconButton size="small" onClick={() => { setRenaming(false); setNewName(node.name); }}>
-            <CloseIcon sx={{ fontSize: 16 }} />
-          </IconButton>
+          <Tooltip title="Confirm"><IconButton size="small" onClick={submitRename}><CheckIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+          <Tooltip title="Cancel"><IconButton size="small" onClick={() => { setRenaming(false); setNewName(node.name); }}><CloseIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
         </>
       ) : (
-        <>
-          <Typography
-            variant="body2"
-            sx={{ flex: 1, fontWeight: 500 }}
-            component={NextLink}
-            href={`/spaces/${spaceId}/${node.path}`}
-            onClick={e => e.stopPropagation()}
-            style={{ textDecoration: 'none', color: 'inherit' }}
-          >
-            {node.name}
-          </Typography>
-
-          <Box sx={{ display: 'flex', gap: 0.5, visibility: hovered ? 'visible' : 'hidden' }}>
-            <Tooltip title="Rename">
-              <IconButton
-                size="small"
-                onClick={e => { e.stopPropagation(); setRenaming(true); }}
-                sx={{ color: 'text.disabled' }}
-              >
-                <DriveFileRenameOutlineIcon sx={{ fontSize: 16 }} />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Delete">
-              <IconButton size="small" onClick={e => { e.stopPropagation(); onDelete(); }} sx={{ color: 'text.disabled' }}>
-                <DeleteIcon sx={{ fontSize: 16 }} />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        </>
+        <Typography
+          variant="body2"
+          component={NextLink}
+          href={`/spaces/${spaceId}/${node.path}`}
+          onClick={e => e.stopPropagation()}
+          sx={{ flex: 1, fontWeight: 500, textDecoration: 'none', color: 'inherit' }}
+        >
+          {node.name}
+        </Typography>
       )}
-    </Box>
+    </ResourceRow>
   );
 }
 
 // ---------------------------------------------------------------------------
 
 function DocumentRow({ node, spaceId, onDelete }: { node: TreeNode; spaceId: string; onDelete: () => void }) {
-  const [hovered, setHovered] = useState(false);
+  const rowActions: RowAction[] = [
+    {
+      tooltip: 'Delete',
+      icon: <DeleteIcon sx={{ fontSize: 16 }} />,
+      onClick: (e) => { e.stopPropagation(); onDelete(); },
+    },
+  ];
 
   return (
-    <Box
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      sx={{
-        display: 'flex', alignItems: 'center', gap: 1.5,
-        px: 1.5, py: 1,
-        borderRadius: 1,
-        '&:hover': { bgcolor: 'action.hover' },
-        '&:not(:last-child)': { borderBottom: '1px solid', borderColor: 'divider' },
-      }}
+    <ResourceRow
+      icon={<InsertDriveFileOutlinedIcon sx={{ fontSize: 20, color: 'text.disabled', flexShrink: 0 }} />}
+      actions={rowActions}
     >
-      <InsertDriveFileOutlinedIcon sx={{ fontSize: 20, color: 'text.disabled', flexShrink: 0 }} />
       <Typography
         variant="body2"
         component={NextLink}
         href={`/spaces/${spaceId}/${node.path}`}
-        style={{ flex: 1, textDecoration: 'none', color: 'inherit' }}
+        sx={{ flex: 1, textDecoration: 'none', color: 'inherit' }}
       >
         {node.title || node.name}
       </Typography>
-      <Box sx={{ visibility: hovered ? 'visible' : 'hidden' }}>
-        <Tooltip title="Delete">
-          <IconButton size="small" onClick={e => { e.stopPropagation(); onDelete(); }} sx={{ color: 'text.disabled' }}>
-            <DeleteIcon sx={{ fontSize: 16 }} />
-          </IconButton>
-        </Tooltip>
-      </Box>
-    </Box>
+    </ResourceRow>
   );
 }
