@@ -1,7 +1,9 @@
 package io.grundner.d11n.share;
 
+import io.grundner.d11n.auth.Permissions;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +19,7 @@ public class ShareController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('" + Permissions.SHARE_CREATE + "')")
     public ShareInfo create(@RequestBody ShareRequest request,
                             @AuthenticationPrincipal UserDetails principal) {
         return ShareInfo.from(shareService.create(request, principal.getUsername()));
@@ -43,6 +46,7 @@ public class ShareController {
 
     @DeleteMapping("/{token}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAuthority('" + Permissions.SHARE_REVOKE + "')")
     public void revoke(@PathVariable String token,
                        @AuthenticationPrincipal UserDetails principal) {
         shareService.revoke(token, principal.getUsername());

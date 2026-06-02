@@ -37,6 +37,7 @@ import { useDocumentSetter } from '@/contexts/DocumentContext';
 import { useDocumentLock } from '@/hooks/useDocumentLock';
 import { useNotify } from '@/contexts/NotificationContext';
 import { ShareDialog } from '@/components/ShareDialog';
+import { DocumentSettingsDialog } from '@/components/DocumentSettingsDialog';
 
 interface Props {
   doc: Document;
@@ -69,6 +70,7 @@ export function DocumentEditor({ doc }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [docSettingsOpen, setDocSettingsOpen] = useState(false);
   const [pendingDraft, setPendingDraft] = useState<Draft | null>(null);
   const [changeCount, setChangeCount] = useState(0);
   const mountedRef = useRef(false);
@@ -135,9 +137,10 @@ export function DocumentEditor({ doc }: Props) {
     lastSavedContentRef.current = editor.getJSON();
   }, [editor]);
 
-  // Sync editor editability with isEditing state
+  // Sync editor editability with isEditing state — emitUpdate=false suppresses the
+  // spurious onUpdate that would otherwise mark the document dirty immediately on entering edit mode.
   useEffect(() => {
-    editor?.setEditable(isEditing);
+    editor?.setEditable(isEditing, false);
   }, [editor, isEditing]);
 
   const handleEnterEdit = useCallback(async () => {
@@ -282,6 +285,8 @@ export function DocumentEditor({ doc }: Props) {
       onEnterEdit: handleEnterEdit,
       onExitEdit: handleExitEdit,
       onShare: () => setShareOpen(true),
+      onOpenSettings: () => setDocSettingsOpen(true),
+      folderPath: null,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [updateContext, doc.spaceId, doc.slug, title, isDirty, saving, saveCount,
@@ -521,6 +526,14 @@ export function DocumentEditor({ doc }: Props) {
         spaceId={doc.spaceId}
         resourcePath={doc.slug}
         resourceLabel={title || doc.slug}
+      />
+
+      <DocumentSettingsDialog
+        open={docSettingsOpen}
+        onClose={() => setDocSettingsOpen(false)}
+        spaceId={doc.spaceId}
+        slug={doc.slug}
+        title={title}
       />
 
       <Dialog open={confirmDiscardOpen} onClose={() => setConfirmDiscardOpen(false)} maxWidth="xs" fullWidth>

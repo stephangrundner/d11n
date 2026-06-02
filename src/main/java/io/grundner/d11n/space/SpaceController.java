@@ -1,8 +1,10 @@
 package io.grundner.d11n.space;
 
+import io.grundner.d11n.auth.Permissions;
 import lombok.RequiredArgsConstructor;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -38,12 +40,14 @@ public class SpaceController {
 
     @DeleteMapping("/{spaceId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAuthority('" + Permissions.SPACE_DELETE + "')")
     public void deleteSpace(@PathVariable String spaceId) throws IOException {
         spaceService.deleteSpace(spaceId);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('" + Permissions.SPACE_CREATE + "')")
     public Space createSpace(@RequestBody CreateSpaceRequest request) throws IOException, GitAPIException {
         return spaceService.createSpace(request.id());
     }
@@ -60,6 +64,7 @@ public class SpaceController {
     }
 
     @PutMapping("/{spaceId}/settings")
+    @PreAuthorize("hasAuthority('" + Permissions.SPACE_WRITE + "')")
     public SpaceSettings updateSettings(
             @PathVariable String spaceId,
             @RequestBody SpaceSettings settings

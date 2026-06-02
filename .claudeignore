@@ -6,7 +6,7 @@ frontend/public/
 frontend/patches/
 frontend/package-lock.json
 frontend/yarn.lock
-frontend/pnpm-lock.yaml
+frontend/pnpm-lock.yamlBaue
 
 # Backend
 .gradle/

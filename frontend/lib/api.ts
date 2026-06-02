@@ -1,7 +1,16 @@
-import type { Space, Document, CommitInfo, DiffResponse, SpaceSettings, TreeNode, ShareInfo, ShareRequest } from './types';
+import type { Space, Document, CommitInfo, DiffResponse, SpaceSettings, TreeNode, ShareInfo, ShareRequest, RoleInfo } from './types';
 import { getClientToken, clearToken } from './auth';
+import { reportNetworkFailure } from './networkStatus';
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
+
+export class NetworkError extends Error {
+  constructor() { super('Network unreachable'); this.name = 'NetworkError'; }
+}
+
+export class ForbiddenError extends Error {
+  constructor() { super('Forbidden'); this.name = 'ForbiddenError'; }
+}
 
 export function authHeader(): Record<string, string> {
   const token = getClientToken();
@@ -15,13 +24,21 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     ...(options?.headers as Record<string, string>),
   };
 
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers, cache: 'no-store' });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, { ...options, headers, cache: 'no-store' });
+  } catch {
+    reportNetworkFailure();
+    throw new NetworkError();
+  }
 
   if (res.status === 401) {
     clearToken();
     window.location.href = '/login';
     throw new Error('Unauthorized');
   }
+
+  if (res.status === 403) throw new ForbiddenError();
 
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   const ct = res.headers.get('content-type') ?? '';
@@ -101,6 +118,14 @@ export const api = {
       apiFetch<Document>(`/api/shared/${token}/document`),
     tree: (token: string) =>
       apiFetch<TreeNode[]>(`/api/shared/${token}/tree`),
+  },
+  admin: {
+    roles: {
+      list:           ()                            => apiFetch<RoleInfo[]>('/api/admin/roles'),
+      create:         (name: string)                => apiFetch<RoleInfo>('/api/admin/roles', { method: 'POST', body: JSON.stringify({ name }) }),
+      setPermissions: (id: number, perms: string[]) => apiFetch<RoleInfo>(`/api/admin/roles/${id}/permissions`, { method: 'PUT', body: JSON.stringify(perms) }),
+      delete:         (id: number)                  => apiFetch<void>(`/api/admin/roles/${id}`, { method: 'DELETE' }),
+    },
   },
   locks: {
     status: (spaceId: string, slug: string) =>

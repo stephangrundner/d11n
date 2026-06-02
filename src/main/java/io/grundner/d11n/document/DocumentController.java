@@ -1,8 +1,10 @@
 package io.grundner.d11n.document;
 
+import io.grundner.d11n.auth.Permissions;
 import lombok.RequiredArgsConstructor;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -57,6 +59,7 @@ public class DocumentController {
 
     @PostMapping("/{*slug}")
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('" + Permissions.DOCUMENT_CREATE + "')")
     public Document createDocument(@PathVariable String spaceId, @PathVariable String slug,
                                    @RequestBody DocumentRequest request,
                                    @AuthenticationPrincipal UserDetails principal) throws IOException, GitAPIException {
@@ -64,6 +67,7 @@ public class DocumentController {
     }
 
     @PutMapping("/{*slug}")
+    @PreAuthorize("hasAuthority('" + Permissions.DOCUMENT_WRITE + "')")
     public Document updateDocument(@PathVariable String spaceId, @PathVariable String slug,
                                    @RequestBody DocumentRequest request,
                                    @AuthenticationPrincipal UserDetails principal) throws IOException, GitAPIException {
@@ -76,6 +80,7 @@ public class DocumentController {
 
     @DeleteMapping("/{*slug}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAuthority('" + Permissions.DOCUMENT_DELETE + "')")
     public void deleteDocument(@PathVariable String spaceId, @PathVariable String slug)
             throws IOException, GitAPIException {
         documentService.deleteDocument(spaceId, stripLeadingSlash(slug));

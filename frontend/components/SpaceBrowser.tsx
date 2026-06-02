@@ -19,8 +19,11 @@ import CloseIcon from '@mui/icons-material/Close';
 import NextLink from 'next/link';
 import { api } from '@/lib/api';
 import type { TreeNode } from '@/lib/types';
+import { useDocumentSetter } from '@/contexts/DocumentContext';
 import { ResourceList, ResourceRow } from './ResourceList';
 import type { RowAction } from './ResourceList';
+import { SpaceSettingsDialog } from './SpaceSettingsDialog';
+import { FolderSettingsDialog } from './FolderSettingsDialog';
 import { ShareDialog } from './ShareDialog';
 import { ConfirmDialog } from './ConfirmDialog';
 
@@ -56,14 +59,28 @@ const VALID_SLUG = /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/;
 
 export function SpaceBrowser({ spaceId, path }: Props) {
   const router = useRouter();
+  const updateContext = useDocumentSetter();
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [loading, setLoading] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [creatingDoc, setCreatingDoc] = useState(false);
   const [newDocSlug, setNewDocSlug] = useState('');
   const [newDocTitle, setNewDocTitle] = useState('');
   const [docError, setDocError] = useState<string | null>(null);
+
+  useEffect(() => {
+    updateContext({
+      spaceId,
+      slug: null,
+      folderPath: path || null,
+      onOpenSettings: () => setSettingsOpen(true),
+    });
+    return () => updateContext({ spaceId: null, slug: null, folderPath: null, onOpenSettings: () => {} });
+  // setSettingsOpen is a stable React setter — excluded from deps intentionally
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spaceId, path, updateContext]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -102,14 +119,32 @@ export function SpaceBrowser({ spaceId, path }: Props) {
 
   const breadcrumbNode = <AppBreadcrumbs crumbs={crumbs} sx={{ mb: 3 }} />;
 
+  const settingsDialog = path ? (
+    <FolderSettingsDialog
+      open={settingsOpen}
+      onClose={() => setSettingsOpen(false)}
+      spaceId={spaceId}
+      folderPath={path}
+    />
+  ) : (
+    <SpaceSettingsDialog
+      open={settingsOpen}
+      onClose={() => setSettingsOpen(false)}
+      spaceId={spaceId}
+    />
+  );
+
   // Folder not found — still render the breadcrumb but no list
   if (!loading && nodes === null) {
     return (
-      <ResourceList loading={false} header={breadcrumbNode}>
-        <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-          Folder not found.
-        </Typography>
-      </ResourceList>
+      <>
+        <ResourceList loading={false} header={breadcrumbNode}>
+          <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+            Folder not found.
+          </Typography>
+        </ResourceList>
+        {settingsDialog}
+      </>
     );
   }
 
@@ -174,6 +209,7 @@ export function SpaceBrowser({ spaceId, path }: Props) {
   );
 
   return (
+    <>
     <ResourceList
       loading={loading}
       header={breadcrumbNode}
@@ -211,6 +247,8 @@ export function SpaceBrowser({ spaceId, path }: Props) {
         )
       )}
     </ResourceList>
+    {settingsDialog}
+    </>
   );
 }
 
@@ -299,7 +337,7 @@ function FolderRow({ node, spaceId, onDelete, onRename }: {
       <ConfirmDialog
         open={confirmOpen}
         title={`Delete "${node.name}"?`}
-        message="Der Ordner und alle darin enthaltenen Dokumente werden unwiderruflich gelöscht."
+        message="The folder and all documents it contains will be permanently deleted."
         onConfirm={() => { setConfirmOpen(false); onDelete(); }}
         onCancel={() => setConfirmOpen(false)}
       />
@@ -354,7 +392,7 @@ function DocumentRow({ node, spaceId, onDelete }: { node: TreeNode; spaceId: str
       <ConfirmDialog
         open={confirmOpen}
         title={`Delete "${node.title || node.name}"?`}
-        message="Das Dokument wird unwiderruflich gelöscht."
+        message="This document will be permanently deleted."
         onConfirm={() => { setConfirmOpen(false); onDelete(); }}
         onCancel={() => setConfirmOpen(false)}
       />

@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
@@ -18,6 +19,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -32,11 +34,13 @@ public class SecurityConfig {
             .formLogin(login -> login.disable())
             .httpBasic(basic -> basic.disable())
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/health").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/shared/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 // SSO callback URLs (needed when oauth2-client is enabled)
                 .requestMatchers("/login/oauth2/**", "/oauth2/**").permitAll()
+                .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "SUPERUSER")
                 .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex

@@ -11,7 +11,14 @@ public class D11nProperties {
     private String defaultAuthor = "d11n";
     private String defaultEmail = "d11n@localhost";
 
+    private Heartbeat heartbeat = new Heartbeat();
     private Superuser superuser = new Superuser();
+
+    @Data
+    public static class Heartbeat {
+        private int intervalSeconds = 30;
+        private int timeoutMs = 5000;
+    }
 
     @Data
     public static class Superuser {

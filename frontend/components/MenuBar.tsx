@@ -14,17 +14,41 @@ import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import IosShareOutlinedIcon from '@mui/icons-material/IosShareOutlined';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import NextLink from 'next/link';
 import { useDocumentContext } from '@/contexts/DocumentContext';
 import { getClientToken, getUsernameFromToken } from '@/lib/auth';
 import { AccountDialog } from './AccountDialog';
+import { AllSharesDialog } from './AllSharesDialog';
+import { AppSettingsDialog } from './AppSettingsDialog';
 
 export function MenuBar() {
   const doc = useDocumentContext();
   const hasDoc = !!doc.spaceId && !!doc.slug;
   const lockedByOther = !doc.isEditing && !!doc.lockedBy;
 
+  const settingsTooltip = !doc.spaceId
+    ? 'App settings'
+    : doc.slug
+      ? 'Document settings'
+      : doc.folderPath
+        ? 'Folder settings'
+        : 'Space settings';
+
+  const handleSettings = () => {
+    if (!doc.spaceId) setAppSettingsOpen(true);
+    else doc.onOpenSettings();
+  };
+
   const [accountOpen, setAccountOpen] = useState(false);
+  const [appSettingsOpen, setAppSettingsOpen] = useState(false);
+  const [allSharesOpen, setAllSharesOpen] = useState(false);
+
+  const shareTooltip = !doc.spaceId ? 'Shared links' : hasDoc ? 'Share document' : 'No document open';
+  const handleShare = () => {
+    if (!doc.spaceId) setAllSharesOpen(true);
+    else if (hasDoc) doc.onShare();
+  };
   const [username, setUsername] = useState<string | null>(null);
 
   useEffect(() => {
@@ -175,22 +199,29 @@ export function MenuBar() {
 
         <Box sx={{ flex: 1, minWidth: 24 }} />
 
-        {/* Share current document */}
-        <Tooltip
-          title={!hasDoc ? 'No document open' : 'Share document'}
-          placement="bottom"
-          arrow
-        >
+        {/* Share — opens AllSharesDialog on root, ShareDialog on document */}
+        <Tooltip title={shareTooltip} placement="bottom" arrow>
           <span>
             <IconButton
               size="small"
-              disabled={!hasDoc}
-              onClick={doc.onShare}
+              disabled={!!doc.spaceId && !hasDoc}
+              onClick={handleShare}
               sx={{ '&:not(:disabled)': { color: 'inherit' } }}
             >
               <IosShareOutlinedIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </span>
+        </Tooltip>
+
+        {/* Settings */}
+        <Tooltip title={settingsTooltip} placement="bottom" arrow>
+          <IconButton
+            size="small"
+            onClick={handleSettings}
+            sx={{ color: 'inherit' }}
+          >
+            <SettingsOutlinedIcon sx={{ fontSize: 18 }} />
+          </IconButton>
         </Tooltip>
 
         <Divider orientation="vertical" flexItem sx={{
@@ -221,6 +252,8 @@ export function MenuBar() {
       </Box>
 
       <AccountDialog open={accountOpen} onClose={() => setAccountOpen(false)} username={username} />
+      <AllSharesDialog open={allSharesOpen} onClose={() => setAllSharesOpen(false)} />
+      <AppSettingsDialog open={appSettingsOpen} onClose={() => setAppSettingsOpen(false)} />
     </>
   );
 }

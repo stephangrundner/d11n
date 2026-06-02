@@ -1,8 +1,10 @@
 package io.grundner.d11n.document;
 
+import io.grundner.d11n.auth.Permissions;
 import lombok.RequiredArgsConstructor;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -24,6 +26,7 @@ public class FolderController {
 
     @PostMapping("/folders")
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('" + Permissions.FOLDER_WRITE + "')")
     public void createFolder(@PathVariable String spaceId,
                              @RequestBody FolderRequest request,
                              @AuthenticationPrincipal UserDetails principal)
@@ -33,6 +36,7 @@ public class FolderController {
 
     @DeleteMapping("/folders")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAuthority('" + Permissions.FOLDER_DELETE + "')")
     public void deleteFolder(@PathVariable String spaceId,
                              @RequestParam String path,
                              @AuthenticationPrincipal UserDetails principal)
@@ -41,6 +45,7 @@ public class FolderController {
     }
 
     @PatchMapping("/folders")
+    @PreAuthorize("hasAuthority('" + Permissions.FOLDER_WRITE + "')")
     public void renameFolder(@PathVariable String spaceId,
                              @RequestParam String path,
                              @RequestBody FolderRenameRequest request,

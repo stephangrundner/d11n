@@ -59,6 +59,13 @@ export interface ShareRequest {
   expiresAt: string | null;
 }
 
+export interface RoleInfo {
+  id: number;
+  name: string;
+  builtin: boolean;
+  permissions: string[];
+}
+
 export interface TreeNode {
   name: string;
   path: string;

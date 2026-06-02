@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useState } from 'react';
 export interface DocumentState {
   spaceId: string | null;
   slug: string | null;
+  folderPath: string | null;
   title: string | null;
   isDirty: boolean;
   saving: boolean;
@@ -16,11 +17,13 @@ export interface DocumentState {
   onEnterEdit: () => void;
   onExitEdit: () => void;
   onShare: () => void;
+  onOpenSettings: () => void;
 }
 
 const defaultState: DocumentState = {
   spaceId: null,
   slug: null,
+  folderPath: null,
   title: null,
   isDirty: false,
   saving: false,
@@ -33,6 +36,7 @@ const defaultState: DocumentState = {
   onEnterEdit: () => {},
   onExitEdit: () => {},
   onShare: () => {},
+  onOpenSettings: () => {},
 };
 
 // Read context — consumed by MenuBar

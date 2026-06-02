@@ -37,10 +37,11 @@ public class AuthController {
     @GetMapping("/me")
     public ResponseEntity<?> me(@AuthenticationPrincipal User user) {
         if (user == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        var roles = user.getRoles().stream().map(Role::getName).toList();
         return ResponseEntity.ok(Map.of(
             "username", user.getUsername(),
             "email", user.getEmail(),
-            "role", user.getRole()
+            "roles", roles
         ));
     }
 }
