@@ -1,4 +1,4 @@
-import type { Space, Document, CommitInfo, DiffResponse, SpaceSettings, TreeNode, ShareInfo, ShareRequest, RoleInfo } from './types';
+import type { Space, Document, CommitInfo, DiffResponse, SpaceSettings, TreeNode, ShareInfo, ShareRequest, RoleInfo, EmailSettings, EmailSettingsRequest } from './types';
 import { getClientToken, clearToken } from './auth';
 import { reportNetworkFailure } from './networkStatus';
 
@@ -125,6 +125,13 @@ export const api = {
       create:         (name: string)                => apiFetch<RoleInfo>('/api/admin/roles', { method: 'POST', body: JSON.stringify({ name }) }),
       setPermissions: (id: number, perms: string[]) => apiFetch<RoleInfo>(`/api/admin/roles/${id}/permissions`, { method: 'PUT', body: JSON.stringify(perms) }),
       delete:         (id: number)                  => apiFetch<void>(`/api/admin/roles/${id}`, { method: 'DELETE' }),
+    },
+    settings: {
+      email: {
+        get:      ()                            => apiFetch<EmailSettings>('/api/admin/settings/email'),
+        update:   (req: EmailSettingsRequest)   => apiFetch<EmailSettings>('/api/admin/settings/email', { method: 'PUT', body: JSON.stringify(req) }),
+        sendTest: (to: string)                  => apiFetch<string>('/api/admin/settings/email/test', { method: 'POST', body: JSON.stringify({ to }) }),
+      },
     },
   },
   locks: {

@@ -10,8 +10,10 @@ import ListItemText from '@mui/material/ListItemText';
 import Typography from '@mui/material/Typography';
 import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
 import CloseIcon from '@mui/icons-material/Close';
+import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import PeopleOutlinedIcon from '@mui/icons-material/PeopleOutlined';
 import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
+import { EmailPanel } from './settings/EmailPanel';
 import { RolesPanel } from './settings/RolesPanel';
 
 type NavItem = { id: string; label: string; icon: React.ReactNode };
@@ -20,6 +22,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'general', label: 'General', icon: <TuneOutlinedIcon sx={{ fontSize: 20 }} /> },
   { id: 'roles',   label: 'Roles',   icon: <AdminPanelSettingsOutlinedIcon sx={{ fontSize: 20 }} /> },
   { id: 'users',   label: 'Users',   icon: <PeopleOutlinedIcon sx={{ fontSize: 20 }} /> },
+  { id: 'email',   label: 'Email',   icon: <EmailOutlinedIcon sx={{ fontSize: 20 }} /> },
 ];
 
 interface Props {
@@ -100,6 +103,7 @@ export function AppSettingsDialog({ open, onClose }: Props) {
             {open && activeId === 'general' && <GeneralPanel />}
             {open && activeId === 'roles'   && <RolesPanel />}
             {open && activeId === 'users'   && <UsersPanel />}
+            {open && activeId === 'email'   && <EmailPanel />}
           </Box>
         </Box>
 

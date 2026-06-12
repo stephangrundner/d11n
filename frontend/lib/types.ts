@@ -66,6 +66,30 @@ export interface RoleInfo {
   permissions: string[];
 }
 
+export interface EmailSettings {
+  enabled: boolean;
+  smtpHost: string | null;
+  smtpPort: number;
+  smtpUsername: string | null;
+  passwordSet: boolean;
+  smtpFrom: string | null;
+  smtpFromName: string | null;
+  smtpTls: boolean;
+  smtpAuth: boolean;
+}
+
+export interface EmailSettingsRequest {
+  enabled: boolean;
+  smtpHost: string;
+  smtpPort: number;
+  smtpUsername: string;
+  smtpPassword: string | null;
+  smtpFrom: string;
+  smtpFromName: string;
+  smtpTls: boolean;
+  smtpAuth: boolean;
+}
+
 export interface TreeNode {
   name: string;
   path: string;
