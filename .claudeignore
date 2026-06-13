@@ -1,0 +1,16 @@
+# Frontend wird separat entwickelt – nicht von Claude erkunden/ändern
+frontend/
+
+# Build- und IDE-Artefakte
+.gradle/
+build/
+.idea/
+out/
+
+# Gradle-Wrapper-Binary
+gradle/wrapper/gradle-wrapper.jar
+
+# Logs & temp
+*.log
+tmp/
+.DS_Store
