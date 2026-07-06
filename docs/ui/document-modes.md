@@ -29,7 +29,11 @@ Beim Wechsel ändern sich zwei Dinge:
 
 * Inhalte werden mit dem **Block-Editor** bearbeitet (ähnlich Notion oder Confluence).
 * Der Benutzer soll sich ausschließlich auf den Inhalt konzentrieren können.
+* Neue Blöcke werden über **Slash-Commands** (`/`) eingefügt.
+* Benutzer und Gruppen können via **@-Mention** erwähnt werden.
 * Diagramm-Blöcke öffnen bei Klick die draw.io-Oberfläche (siehe `diagram-interaction.md`).
+
+Details zum Block-Editor: `docs/ui/block-editor.md`
 
 ---
 

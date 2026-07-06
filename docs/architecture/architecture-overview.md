@@ -74,10 +74,30 @@ Technologien:
 
 * Next.js
 * React
-* Mantine UI
+* MUI (Material UI Core + X)
 * TanStack Query
-* TanStack Table
 * TypeScript
+
+Das Frontend ist als npm-Workspace organisiert. Die Präsentationskomponenten
+liegen als eigenständige, baubare Bibliothek `@d11n/ui` unter
+`frontend/packages/ui` und enthalten keine Routing-, API- oder Auth-Logik. Die
+Next.js-App konsumiert diese Bibliothek; ihre Komponenten unter
+`frontend/src/components` sind dünne Wrapper, die die Anwendungslogik ergänzen.
+Details: `docs/decisions/0001-frontend-ui-component-library.md`.
+
+Das visuelle Design folgt der Vorlage „d11n Mockups": zentrale Design-Tokens und
+ein MUI-Theme in `@d11n/ui`, Schrift **Roboto**, Icons via `@mui/icons-material`
+(Rounded), Tabellen via **MUI X DataGrid**. Tokens: `docs/ui/design-tokens.md`;
+Entscheidung: `docs/decisions/0002-visual-design-system.md`. Noch fehlende
+Backend-Felder werden vorübergehend über isolierte Mock-Daten dargestellt
+(`frontend/src/lib/mockDesign.ts`).
+
+```text
+frontend/
+├── packages/
+│   └── ui/          # @d11n/ui — Präsentationsbibliothek (Design-System)
+└── src/             # Next.js-App (konsumiert @d11n/ui)
+```
 
 Frontend und Backend werden gemeinsam entwickelt und versioniert.
 
@@ -224,6 +244,17 @@ Datenbankänderungen müssen versioniert erfolgen.
 Für Datenbankmigrationen wird Flyway eingesetzt.
 
 Schemaänderungen dürfen niemals manuell durchgeführt werden.
+
+---
+
+# Auditing
+
+Alle Entities (User, Space, Verzeichnis, Dokument, Block) erben von `BaseEntity` und
+speichern **wer und wann** sie erzeugt bzw. zuletzt geändert hat: `created_at`,
+`updated_at`, `created_by`, `updated_by`. Die Felder werden automatisch über Spring
+Data JPA Auditing (`@EnableJpaAuditing`, `AuditorAware<User>`) befüllt; der Auditor ist
+der authentifizierte Benutzer (ohne Authentifizierung bleibt der Auditor leer).
+Details: `docs/decisions/0003-auditing-and-diagram-persistence.md`.
 
 ---
 

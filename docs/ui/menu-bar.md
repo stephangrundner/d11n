@@ -11,6 +11,15 @@ Die Menu Bar ist das einzige dauerhaft sichtbare Steuerelement der Anwendung. d1
 * Die Menu Bar **schwebt frei** am oberen Rand der Anwendung.
 * Sie ist **zentriert** ausgerichtet.
 * Sie überlagert den Inhalt (kein reservierter Layout-Bereich).
+* Darstellung als abgerundete **Icon-Pille**. Direkt darunter erscheint der zentrierte **Breadcrumb**.
+
+Feste Reihenfolge der Buttons (durch einen Trenner gruppiert):
+
+```
+Home · Suche · Konto │ Bearbeiten · Teilen · Einstellungen
+```
+
+Die aktive Sicht (Home / Suche / Konto) wird hervorgehoben (gefüllt, Primärfarbe, Container-Hintergrund). Nicht anwendbare kontextsensitive Buttons werden verblasst und sind nicht klickbar.
 
 ---
 
@@ -20,8 +29,9 @@ Die Menu Bar ist das einzige dauerhaft sichtbare Steuerelement der Anwendung. d1
 
 Diese Buttons sind immer sichtbar und verhalten sich unabhängig vom aktiven Kontext gleich.
 
-Beispiele:
-* Lupe (Suche öffnen)
+Konkret:
+* Home (zur Spaces-Übersicht)
+* Lupe (Suche öffnen — auch via Shift + Shift)
 * Konto
 
 ### Kontextsensitive Buttons
@@ -52,6 +62,5 @@ Im **Editor-Modus** eines Dokuments wechselt die Navbar-Farbe von Light zur Prim
 
 ## Offene Punkte
 
-* Vollständige Liste aller Buttons (kontext-unabhängig und kontextsensitiv) ist noch nicht definiert.
 * Verhalten auf kleinen Bildschirmen / mobilen Viewports ist noch nicht definiert.
 * Animation und Übergänge beim Kontextwechsel sind noch nicht definiert.

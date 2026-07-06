@@ -2,13 +2,15 @@
 
 ## Zielsetzung
 
-Die Content View ist die primäre Navigationsansicht von d11n. Sie stellt Inhalte als **Card-Grid** dar und wird auf drei Ebenen einheitlich verwendet:
+Die Content View ist die primäre Navigationsansicht von d11n. Sie kennt drei Ebenen:
 
-1. **Spaces-Übersicht** — alle Spaces des Benutzers
-2. **Space-Inhalt** — Verzeichnisse und Dokumente eines Spaces
-3. **Verzeichnis-Inhalt** — Unterverzeichnisse und Dokumente eines Verzeichnisses
+1. **Spaces-Übersicht** — alle Spaces des Benutzers, als **Card-Grid**
+2. **Space-Inhalt** — Verzeichnisse und Dokumente eines Spaces, als **Tabellen-/Baum-Liste**
+3. **Verzeichnis-Inhalt** — Unterverzeichnisse und Dokumente eines Verzeichnisses, als **Tabellen-/Baum-Liste**
 
-Das einheitliche Muster sorgt dafür, dass sich Benutzer auf jeder Ebene sofort zurechtfinden.
+Die Spaces-Übersicht nutzt visuell reiche Karten (Icon-Kachel, Tags, Sichtbarkeit, Mitglieder). Inhalte innerhalb eines Spaces/Verzeichnisses werden als Liste mit Spalten dargestellt, da dort mehr Einträge und Metadaten kompakt erfassbar sein müssen.
+
+Auf jeder Ebene erscheinen oberhalb des Inhalts die **Menu Bar** und darunter ein **Breadcrumb**; am unteren Rand ein dezenter **Footer** („d11n · Kontinuierliches Dokumentieren").
 
 ---
 
@@ -41,9 +43,9 @@ Das einheitliche Muster sorgt dafür, dass sich Benutzer auf jeder Ebene sofort 
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-* **3-spaltiges Grid** (responsiv: 2 Spalten auf mittleren, 1 Spalte auf kleinen Viewports).
-* Die letzte Position im Grid ist eine **Ghost-Card** mit „+ Neu"-Aktion.
-* Sortierung standardmäßig nach letzter Aktivität.
+* **Spaces-Übersicht:** 3-spaltiges Grid (responsiv: 2 Spalten auf mittleren, 1 Spalte auf kleinen Viewports). Die letzte Position ist eine **Ghost-Card** mit „+ Neu"-Aktion. Sortierung standardmäßig nach letzter Aktivität.
+* **Space-/Verzeichnis-Inhalt:** Liste mit Spalten **Name · Tags · Sichtbarkeit · Geändert** sowie einem Zeilen-Menü. Ordner sind durch Chevron + Ordner-Icon erkennbar, Dokumente durch das Dokument-Icon; Verschachtelung wird durch Einrückung angedeutet.
+* Oberhalb des Inhalts steht ein zentrierter **Breadcrumb** (Spaces › Space › Verzeichnis › Dokument).
 
 ---
 
@@ -60,7 +62,7 @@ Das einheitliche Muster sorgt dafür, dass sich Benutzer auf jeder Ebene sofort 
 
 ### Space-Inhalt und Verzeichnis-Inhalt
 
-Verzeichnisse und Dokumente werden gemischt im selben Grid dargestellt. Der Typ ist über das Icon erkennbar.
+Verzeichnisse und Dokumente werden gemischt in **derselben Liste** dargestellt. Der Typ ist über das Icon erkennbar.
 
 | Element          | Verzeichnis                              | Dokument                                |
 |------------------|------------------------------------------|-----------------------------------------|

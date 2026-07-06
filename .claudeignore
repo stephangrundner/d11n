@@ -1,14 +1,29 @@
-# Frontend wird separat entwickelt – nicht von Claude erkunden/ändern
-frontend/
-
 # Build- und IDE-Artefakte
 .gradle/
 build/
-.idea/
 out/
+.idea/
+*.iml
+
+# Node / Frontend – generierte Artefakte, nicht der Quellcode
+node_modules/
+frontend/.next/
+frontend/out/
+frontend/packages/*/dist/
+*.tsbuildinfo
 
 # Gradle-Wrapper-Binary
 gradle/wrapper/gradle-wrapper.jar
+
+# Große eingebundene Drittanbieter-Assets (draw.io) – nicht erkunden
+frontend/public/drawio/
+
+# Lockfiles (sehr groß, selten relevant)
+frontend/package-lock.json
+
+# Umgebung & Secrets
+.env
+.env.*
 
 # Logs & temp
 *.log

@@ -12,12 +12,16 @@ Der Inhalt eines Dokuments besteht aus einer geordneten Liste von Blöcken. Blö
 
 | Typ | Beschreibung |
 |---|---|
-| **Überschrift** | Strukturiert ein Dokument in Abschnitte. |
-| **Text** | Freier Fließtext; die Standardeinheit für Dokumentinhalte. |
+| **Überschrift** | Strukturiert ein Dokument in Abschnitte. Ebenen H1–H3. |
+| **Text** | Freier Fließtext mit Formatierungen (Fett, Kursiv) und @-Mentions. |
 | **Code** | Darstellung von Quellcode oder Befehlen in Monospace-Schrift mit Syntax-Hervorhebung. |
 | **Callout** | Farbiger Block mit Icon zur Hervorhebung besonderer Information. Varianten: Hinweis (blau), Erfolg (grün), Warnung (rot). |
 | **Entscheidung** | Kennzeichnet eine im Dokument dokumentierte Entscheidung. Entscheidungs-Blöcke sind gezielt durchsuchbar. |
 | **Diagramm** | Bindet ein draw.io-Diagramm in das Dokument ein. Details: [diagram.md](diagram.md) |
+
+## @-Mentions
+
+In Textblöcken können **Benutzer** und **Gruppen** via `@` erwähnt werden. Eine Mention ist ein Inline-Element mit Referenz auf den Benutzer oder die Gruppe. Details zur Editor-Interaktion: `docs/ui/block-editor.md`
 
 ---
 

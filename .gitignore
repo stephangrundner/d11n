@@ -1,12 +1,26 @@
-# Gradle
+# Gradle / Backend
 .gradle/
 build/
+out/
 !gradle/wrapper/gradle-wrapper.jar
+
+# Node / Frontend (Next.js, npm-Workspace)
+node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/packages/*/dist/
+next-env.d.ts
+*.tsbuildinfo
+
+# Umgebungsvariablen (Secrets nie committen)
+.env
+.env.*
+!.env.example
 
 # IntelliJ IDEA
 .idea/
 *.iml
-out/
 
 # macOS
 .DS_Store

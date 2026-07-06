@@ -1,0 +1,24 @@
+# Build outputs — always produced fresh inside the image
+build/
+.gradle/
+frontend/.next/
+frontend/node_modules/
+frontend/packages/*/dist/
+frontend/packages/*/node_modules/
+**/node_modules/
+
+# VCS / IDE / OS
+.git/
+.gitignore
+.idea/
+*.iml
+.DS_Store
+
+# Local tooling and docs not needed for the build
+.claude/
+.claudeignore
+docs/
+*.log
+tmp/
+Dockerfile
+.dockerignore
